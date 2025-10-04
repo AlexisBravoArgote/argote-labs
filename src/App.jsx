@@ -1,4 +1,10 @@
-﻿import React, {  useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
+import LabImage from "./assets/lab.jpg";
+import guadalajara from "./assets/guadalajara.jpg"
+import science from "./assets/science.jpg"
+import ubicacion from "./assets/ubicacion.jpg"
+import pastillas from "./assets/pastillas.png"
+
 
 // Simple in-app image library (royalty-free Unsplash/OG sources)
 const IMG = {
@@ -18,8 +24,8 @@ const IMG = {
 
 const jobs = [
     {
-        id: "comp-chemist",
-        title: "Computational Chemist (Química Computacional)",
+        id: "Quimico computacional",
+        title: "Químico Computacional",
         location: "Guadalajara, Jalisco (Híbrido)",
         type: "Tiempo completo",
         intro:
@@ -37,8 +43,8 @@ const jobs = [
         ],
     },
     {
-        id: "formulation-chemist",
-        title: "Formulation Chemist (Químico Formulador)",
+        id: "Quimico formulador",
+        title: "Químico Formulador",
         location: "Guadalajara, Jalisco (Presencial)",
         type: "Tiempo completo",
         intro:
@@ -135,7 +141,7 @@ export default function App() {
                     <a href="#top" className="text-xl font-bold">Argote Labs</a>
                     <nav className="hidden md:flex gap-6 text-sm">
                         <a href="#mission" className="hover:opacity-80">Misión</a>
-                        <a href="#products" className="hover:opacity-80">Productos</a>
+                        <a href="#productos" className="hover:opacity-80">Productos</a>
                         <a href="#projects" className="hover:opacity-80">Proyectos</a>
                         <a href="#careers" className="hover:opacity-80">Bolsa de trabajo</a>
                         <a href="#contact" className="hover:opacity-80">Contacto</a>
@@ -146,7 +152,7 @@ export default function App() {
 
             {/* Hero */}
             <div id="top" className="relative">
-                <img src={IMG.hero} alt="Biotech hero" className="h-[56vh] w-full object-cover" />
+                <img src={LabImage} alt="Laboratory" className="h-[56vh] w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-black/10" />
                 <div className="absolute inset-0 flex items-center">
                     <div className="mx-auto max-w-7xl px-6">
@@ -163,7 +169,7 @@ export default function App() {
                                 Transformamos ideas científicas en productos reales: software de salud, formulaciones dentales y plataformas para pacientes.
                             </p>
                             <div className="mt-6 flex flex-wrap gap-3">
-                                <a href="#products" className="rounded-xl bg-white text-black px-5 py-2.5 font-medium shadow">Ver productos</a>
+                                <a href="#productos" className="rounded-xl bg-white text-black px-5 py-2.5 font-medium shadow">Ver productos</a>
                                 <a href="#careers" className="rounded-xl border border-white/70 text-white px-5 py-2.5 font-medium">Unirte al equipo</a>
                             </div>
                         </div>
@@ -186,22 +192,22 @@ export default function App() {
                         </div>
                     </div>
                     <div className="relative">
-                        <img src={IMG.guadalajara} alt="Guadalajara skyline" className="rounded-3xl shadow-lg object-cover w-full h-80" />
+                        <img src={guadalajara} alt="Guadalajara skyline" className="rounded-3xl shadow-lg object-cover w-full h-80" />
                         <div className="absolute -bottom-4 -right-4 hidden md:block">
-                            <img src={IMG.lab} alt="Laboratorio" className="w-40 h-40 rounded-2xl object-cover shadow-xl border-4 border-white" />
+                            <img src={science} alt="Laboratorio" className="w-40 h-40 rounded-2xl object-cover shadow-xl border-4 border-white" />
                         </div>
                     </div>
                 </div>
             </Section>
 
-            {/* Products */}
-            <Section id="products">
+            {/* Productos */}
+            <Section id="productos">
                 <div className="mx-auto max-w-7xl">
-                    <h2 className="text-3xl font-bold">Producto</h2>
+                    <h2 className="text-3xl font-bold">Productos</h2>
                     <div className="mt-6 grid gap-8 md:grid-cols-2">
                         <div className="rounded-2xl border bg-white p-6 shadow">
                             <div className="flex items-center gap-3">
-                                <img src={IMG.pills} alt="Pastillas.app" className="h-14 w-14 rounded-xl object-cover" />
+                                <img src={pastillas} alt="Pastillas.app" className="h-14 w-14 rounded-xl object-cover" />
                                 <div>
                                     <h3 className="text-xl font-semibold">pastillas.app</h3>
                                     <p className="text-sm text-gray-600">Plataforma educativa y de recordatorios para medicamentos en México.</p>
@@ -239,7 +245,7 @@ export default function App() {
                     <h2 className="text-3xl font-bold">I+D y pipeline</h2>
                     <div className="mt-6 grid gap-6 md:grid-cols-3">
                         {[{
-                            title: "Modelado molecular para activos de cuidado bucal",
+                            title: "Modelado molecular para cuidado bucal",
                             text: "Uso de QSAR/Docking para priorización de ingredientes, optimización de compatibilidad y predicción de desempeño.",
                         }, {
                             title: "Formulación de pasta dental",
@@ -251,7 +257,7 @@ export default function App() {
                             <div key={i} className="rounded-2xl border p-6 shadow bg-gradient-to-br from-white to-slate-50">
                                 <h3 className="text-lg font-semibold">{c.title}</h3>
                                 <p className="mt-2 text-gray-700">{c.text}</p>
-                                <img src={IMG.molecules} alt="Moléculas" className="mt-4 h-36 w-full object-cover rounded-xl" />
+                                
                             </div>
                         ))}
                     </div>
@@ -311,7 +317,7 @@ export default function App() {
                     </div>
                     <div>
                         <div className="rounded-3xl overflow-hidden shadow">
-                            <img src={IMG.guadalajara} alt="Guadalajara" className="h-72 w-full object-cover" />
+                            <img src={ubicacion} alt="ubicacion" className="h-72 w-full object-cover" />
                         </div>
                         <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
                             <div className="rounded-2xl bg-white p-4 shadow">
@@ -334,7 +340,7 @@ export default function App() {
                     <div className="opacity-80">© {new Date().getFullYear()} Argote Labs · Guadalajara, Jal.</div>
                     <div className="flex flex-wrap gap-4">
                         <a href="#mission" className="hover:opacity-80">Misión</a>
-                        <a href="#products" className="hover:opacity-80">Producto</a>
+                        <a href="#productos" className="hover:opacity-80">Producto</a>
                         <a href="#projects" className="hover:opacity-80">I+D</a>
                         <a href="#careers" className="hover:opacity-80">Empleos</a>
                         <a href="#contact" className="hover:opacity-80">Contacto</a>
