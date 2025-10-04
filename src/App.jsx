@@ -8,18 +8,10 @@ import pastillas from "./assets/pastillas.png"
 
 // Simple in-app image library (royalty-free Unsplash/OG sources)
 const IMG = {
-    hero:
-        "https://images.unsplash.com/photo-1581090465189-2f50a1a59f04?q=80&w=1600&auto=format&fit=crop",
-    guadalajara:
-        "https://images.unsplash.com/photo-1606347718368-3388681e4fc2?q=80&w=1600&auto=format&fit=crop",
-    lab:
-        "https://images.unsplash.com/photo-1559757175-08c6dfc44c44?q=80&w=1600&auto=format&fit=crop",
-    pills:
-        "https://images.unsplash.com/photo-1586015555465-5182247de111?q=80&w=1600&auto=format&fit=crop",
+   
     dental:
         "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?q=80&w=1600&auto=format&fit=crop",
-    molecules:
-        "https://images.unsplash.com/photo-1586253629608-68c1a3c09d8a?q=80&w=1600&auto=format&fit=crop",
+    
 };
 
 const jobs = [
