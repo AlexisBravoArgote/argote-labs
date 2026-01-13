@@ -1,10 +1,22 @@
-﻿import React, { useMemo, useState } from "react";
+﻿import { Routes, Route } from "react-router-dom";
+import CerecApp from "./cerec/CerecApp";
+
+
+import React, { useMemo, useState } from "react";
 import LabImage from "./assets/lab.jpg";
 import guadalajara from "./assets/guadalajara.jpg"
 import science from "./assets/science.jpg"
 import ubicacion from "./assets/ubicacion.jpg"
 import pastillas from "./assets/pastillas.png"
 
+export default function App() {
+    return (
+        <Routes>
+            <Route path="/cerec/*" element={<CerecApp />} />
+            <Route path="/*" element={<LandingArgote />} />
+        </Routes>
+    );
+}
 
 // Simple in-app image library (royalty-free Unsplash/OG sources)
 const IMG = {
@@ -113,7 +125,7 @@ const JobCard = ({ job, onApply }) => (
     </div>
 );
 
-export default function App() {
+function LandingArgote() {
     const [search, setSearch] = useState("");
     const filteredJobs = useMemo(
         () => jobs.filter(j => j.title.toLowerCase().includes(search.toLowerCase())),
@@ -341,4 +353,7 @@ export default function App() {
             </footer>
         </div>
     );
+
+  
+
 }
