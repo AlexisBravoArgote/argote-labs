@@ -1,5 +1,7 @@
 ﻿import { useState } from "react";
 import { supabase } from "../supabase";
+import DentalCityLogo from "../assets/DentalCity.png";
+import ArgoteLabsLogo from "../assets/argotelabs.png";
 
 export default function Login() {
     const [email, setEmail] = useState("");
@@ -41,26 +43,24 @@ export default function Login() {
                     {/* Logos */}
                     <div className="flex items-center justify-center gap-6 mb-8">
                         {/* Logo Dental City */}
-                        <div className="flex items-center justify-center h-20 w-40">
-                            {/* Si tienes el logo, descomenta esto y comenta el div de abajo:
-                            <img src="/dental-city-logo.png" alt="Dental City" className="h-full w-full object-contain" />
-                            */}
-                            <div className="flex items-center justify-center h-full w-full bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-lg px-4">
-                                <span className="text-white font-bold text-sm">Dental City</span>
-                            </div>
+                        <div className="flex items-center justify-center h-20">
+                            <img 
+                                src={DentalCityLogo} 
+                                alt="Dental City" 
+                                className="h-full w-auto object-contain max-w-[160px]"
+                            />
                         </div>
                         
                         {/* Separador decorativo */}
                         <div className="h-16 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent"></div>
                         
                         {/* Logo Argote Labs */}
-                        <div className="flex items-center justify-center h-20 w-40">
-                            {/* Si tienes el logo, descomenta esto y comenta el div de abajo:
-                            <img src="/argote-labs-logo.png" alt="Argote Labs" className="h-full w-full object-contain" />
-                            */}
-                            <div className="flex items-center justify-center h-full w-full bg-gradient-to-r from-slate-800 to-slate-900 rounded-lg shadow-lg px-4">
-                                <span className="text-white font-bold text-xs">Argote Labs</span>
-                            </div>
+                        <div className="flex items-center justify-center h-20">
+                            <img 
+                                src={ArgoteLabsLogo} 
+                                alt="Argote Labs" 
+                                className="h-full w-auto object-contain max-w-[160px]"
+                            />
                         </div>
                     </div>
 
