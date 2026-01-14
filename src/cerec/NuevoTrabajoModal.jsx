@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 const TIPOS_TRATAMIENTO = [
     { value: "corona_implante", label: "Corona sobre implante", requiereMateriales: true, materialesObligatorios: ["cubo", "aditamiento"] },
@@ -18,6 +18,7 @@ export default function NuevoTrabajoModal({ items, onClose, onConfirm }) {
     const [nombreTratamiento, setNombreTratamiento] = useState("");
     const [nombrePaciente, setNombrePaciente] = useState("");
     const [materialesSeleccionados, setMaterialesSeleccionados] = useState([]);
+    const [busquedaMateriales, setBusquedaMateriales] = useState("");
     const [error, setError] = useState("");
 
     const tratamientoSeleccionado = TIPOS_TRATAMIENTO.find(t => t.value === tipoTratamiento);
@@ -27,28 +28,42 @@ export default function NuevoTrabajoModal({ items, onClose, onConfirm }) {
     const materialesOpcionales = tratamientoSeleccionado?.materialesOpcionales || [];
 
     // Filtrar items por categoría según materiales requeridos
-    const itemsDisponibles = items.filter(item => {
-        if (!requiereMateriales) return false;
-        
-        // Para corona sobre implante, necesitamos cubos (bloc) y aditamientos (other o que contenga "aditamiento" en el nombre)
-        if (tipoTratamiento === "corona_implante") {
-            return item.category === "bloc" || 
-                   item.category === "other" || 
-                   item.name.toLowerCase().includes("aditamiento");
+    const itemsDisponiblesBase = useMemo(() => {
+        return items.filter(item => {
+            if (!requiereMateriales) return false;
+            
+            // Para corona sobre implante, necesitamos cubos (bloc) y aditamientos (other o que contenga "aditamiento" en el nombre)
+            if (tipoTratamiento === "corona_implante") {
+                return item.category === "bloc" || 
+                       item.category === "other" || 
+                       item.name.toLowerCase().includes("aditamiento");
+            }
+            
+            // Para otros tratamientos, solo cubos (bloc)
+            if (materialesOpcionales.includes("cubo")) {
+                return item.category === "bloc";
+            }
+            
+            return false;
+        });
+    }, [items, requiereMateriales, tipoTratamiento, materialesOpcionales]);
+
+    // Filtrar por búsqueda
+    const itemsDisponibles = useMemo(() => {
+        if (!busquedaMateriales.trim()) {
+            return itemsDisponiblesBase;
         }
-        
-        // Para otros tratamientos, solo cubos (bloc)
-        if (materialesOpcionales.includes("cubo")) {
-            return item.category === "bloc";
-        }
-        
-        return false;
-    });
+        const busqueda = busquedaMateriales.trim().toLowerCase();
+        return itemsDisponiblesBase.filter(item => 
+            item.name.toLowerCase().includes(busqueda)
+        );
+    }, [itemsDisponiblesBase, busquedaMateriales]);
 
     useEffect(() => {
         // Resetear materiales cuando cambia el tipo de tratamiento
         setMaterialesSeleccionados([]);
         setNombreTratamiento("");
+        setBusquedaMateriales("");
     }, [tipoTratamiento]);
 
     function agregarMaterial(item) {
@@ -212,6 +227,14 @@ export default function NuevoTrabajoModal({ items, onClose, onConfirm }) {
                                     <strong>Requerido:</strong> Al menos 1 cubo y 1 aditamiento
                                 </div>
                             )}
+
+                            <input
+                                type="text"
+                                value={busquedaMateriales}
+                                onChange={(e) => setBusquedaMateriales(e.target.value)}
+                                placeholder="Buscar materiales..."
+                                className="border rounded p-2 w-full mb-3"
+                            />
 
                             <div className="border rounded p-3 space-y-2 max-h-60 overflow-y-auto">
                                 {itemsDisponibles.length === 0 ? (
