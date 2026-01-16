@@ -73,7 +73,7 @@ export default function Inventario({ user, perfil }) {
     async function cargarTrabajos() {
         setCargandoTrabajos(true);
         
-        // Cargar trabajos pendientes
+        // Cargar trabajos en proceso
         const { data: pendientes, error: errPendientes } = await supabase
             .from("jobs")
             .select("id, treatment_type, treatment_name, patient_name, created_by, created_at")
@@ -81,7 +81,7 @@ export default function Inventario({ user, perfil }) {
             .order("created_at", { ascending: false });
 
         if (errPendientes) {
-            console.error("Error cargando trabajos pendientes:", errPendientes);
+            console.error("Error cargando trabajos en proceso:", errPendientes);
         } else {
             // Mapear nombres de usuarios
             const userIds = [...new Set((pendientes || []).map(t => t.created_by))];
@@ -358,7 +358,7 @@ export default function Inventario({ user, perfil }) {
         <div className="p-6 max-w-6xl mx-auto">
             <div className="flex items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold">Inventario CEREC</h1>
+                    <h1 className="text-2xl font-bold">CEREC</h1>
                     <div className="text-sm text-gray-600">
                         {perfil?.full_name ?? "Usuario"} ·{" "}
                         {perfil?.role === "admin" ? "Administrador" : "Personal"}
@@ -433,7 +433,7 @@ export default function Inventario({ user, perfil }) {
             )}
 
             <div className="flex items-center justify-between mt-10">
-                <h2 className="text-lg font-semibold">Trabajos pendientes</h2>
+                <h2 className="text-lg font-semibold">Trabajos en proceso</h2>
                 <button
                     onClick={() => setMostrarModalTrabajo(true)}
                     className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
@@ -445,7 +445,7 @@ export default function Inventario({ user, perfil }) {
             {cargandoTrabajos ? (
                 <div className="mt-3 text-gray-600">Cargando trabajos…</div>
             ) : trabajosPendientes.length === 0 ? (
-                <div className="mt-3 text-gray-500 text-sm">No hay trabajos pendientes.</div>
+                <div className="mt-3 text-gray-500 text-sm">No hay trabajos en proceso.</div>
             ) : (
                 <div className="grid gap-2 mt-3">
                     {trabajosPendientes.map((trabajo) => (

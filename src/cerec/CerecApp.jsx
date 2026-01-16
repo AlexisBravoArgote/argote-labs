@@ -11,40 +11,114 @@ export default function CerecApp() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        (async () => {
-            const { data } = await supabase.auth.getUser();
-            const u = data.user ?? null;
-            setUser(u);
+        let mounted = true;
+        let timeoutId;
 
-            if (u) {
-                const { data: p } = await supabase
-                    .from("profiles")
-                    .select("id, full_name, role")
-                    .eq("id", u.id)
-                    .single();
-                setPerfil(p ?? null);
+        // Timeout de seguridad para evitar carga infinita
+        timeoutId = setTimeout(() => {
+            if (mounted) {
+                console.warn("Timeout al cargar autenticación, forzando carga completa");
+                setLoading(false);
             }
+        }, 5000); // 5 segundos máximo
 
-            setLoading(false);
+        (async () => {
+            try {
+                const { data, error } = await supabase.auth.getUser();
+                
+                if (error) {
+                    console.error("Error al obtener usuario:", error);
+                    if (mounted) {
+                        setUser(null);
+                        setPerfil(null);
+                        setLoading(false);
+                    }
+                    return;
+                }
+
+                const u = data.user ?? null;
+                
+                if (mounted) {
+                    setUser(u);
+                }
+
+                if (u) {
+                    try {
+                        const { data: p, error: profileError } = await supabase
+                            .from("profiles")
+                            .select("id, full_name, role")
+                            .eq("id", u.id)
+                            .single();
+                        
+                        if (mounted) {
+                            if (profileError) {
+                                console.error("Error al obtener perfil:", profileError);
+                                setPerfil(null);
+                            } else {
+                                setPerfil(p ?? null);
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Excepción al obtener perfil:", err);
+                        if (mounted) {
+                            setPerfil(null);
+                        }
+                    }
+                } else if (mounted) {
+                    setPerfil(null);
+                }
+
+                if (mounted) {
+                    clearTimeout(timeoutId);
+                    setLoading(false);
+                }
+            } catch (err) {
+                console.error("Error inesperado al cargar:", err);
+                if (mounted) {
+                    clearTimeout(timeoutId);
+                    setUser(null);
+                    setPerfil(null);
+                    setLoading(false);
+                }
+            }
         })();
 
         const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (!mounted) return;
+
             const u = session?.user ?? null;
             setUser(u);
 
             if (u) {
-                const { data: p } = await supabase
-                    .from("profiles")
-                    .select("id, full_name, role")
-                    .eq("id", u.id)
-                    .single();
-                setPerfil(p ?? null);
+                try {
+                    const { data: p, error: profileError } = await supabase
+                        .from("profiles")
+                        .select("id, full_name, role")
+                        .eq("id", u.id)
+                        .single();
+                    
+                    if (profileError) {
+                        console.error("Error al obtener perfil en cambio de estado:", profileError);
+                        setPerfil(null);
+                    } else {
+                        setPerfil(p ?? null);
+                    }
+                } catch (err) {
+                    console.error("Excepción al obtener perfil en cambio de estado:", err);
+                    setPerfil(null);
+                }
             } else {
                 setPerfil(null);
             }
         });
 
-        return () => sub.subscription.unsubscribe();
+        return () => {
+            mounted = false;
+            clearTimeout(timeoutId);
+            if (sub?.subscription) {
+                sub.subscription.unsubscribe();
+            }
+        };
     }, []);
 
     if (loading) return <div style={{ padding: 24 }}>Cargando…</div>;

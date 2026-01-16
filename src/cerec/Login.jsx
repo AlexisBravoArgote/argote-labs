@@ -67,7 +67,7 @@ export default function Login() {
                     {/* Título */}
                     <div className="text-center mb-8">
                         <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">
-                            Inventario CEREC
+                            CEREC
                         </h1>
                         <p className="text-gray-600 text-sm">Odontología Digital</p>
                         <div className="mt-4 flex items-center justify-center gap-2">
