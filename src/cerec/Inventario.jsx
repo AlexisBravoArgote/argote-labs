@@ -180,6 +180,24 @@ export default function Inventario({ user, perfil }) {
 
         setError("");
 
+        // Verificar que el item aún existe antes de intentar el movimiento
+        const { data: itemExists, error: checkError } = await supabase
+            .from("items")
+            .select("id, current_qty")
+            .eq("id", modalItem.id)
+            .single();
+
+        if (checkError || !itemExists) {
+            setError("El artículo ya no existe o no tienes permiso para accederlo. Por favor, actualiza la página.");
+            return;
+        }
+
+        // Verificar stock suficiente si es una retirada
+        if (tipo === "remove" && itemExists.current_qty < cantidad) {
+            setError(`Stock insuficiente. Solo hay ${itemExists.current_qty} disponible(s).`);
+            return;
+        }
+
         const delta = tipo === "add" ? Math.abs(cantidad) : -Math.abs(cantidad);
 
         const { error } = await supabase.from("stock_movements").insert({
