@@ -12,33 +12,8 @@ export default function CerecApp() {
 
     useEffect(() => {
         let mounted = true;
-        let timeoutId;
-        let loadingCompleted = false;
 
-        const completeLoading = () => {
-            if (mounted && !loadingCompleted) {
-                loadingCompleted = true;
-                clearTimeout(timeoutId);
-                setLoading(false);
-            }
-        };
-
-        // Timeout de seguridad - SIEMPRE ejecutar después de 5 segundos
-        timeoutId = setTimeout(() => {
-            if (mounted && !loadingCompleted) {
-                console.warn("TIMEOUT: Forzando cierre de sesión y redirección");
-                loadingCompleted = true;
-                setLoading(false);
-                setUser(null);
-                setPerfil(null);
-                // Forzar cierre de sesión y redirección inmediata
-                supabase.auth.signOut().finally(() => {
-                    window.location.href = "/cerec/login";
-                });
-            }
-        }, 2000);
-
-        // Cargar usuario inicial
+        // Cargar usuario inicial - más rápido, sin esperar perfil
         (async () => {
             try {
                 const { data, error } = await supabase.auth.getUser();
@@ -49,49 +24,46 @@ export default function CerecApp() {
                     console.error("Error al obtener usuario:", error);
                     setUser(null);
                     setPerfil(null);
-                    completeLoading();
+                    setLoading(false);
                     return;
                 }
 
                 const u = data.user ?? null;
                 setUser(u);
+                setLoading(false); // Completar loading inmediatamente después de obtener usuario
 
+                // Cargar perfil en paralelo (no bloquea el loading)
                 if (u) {
-                    try {
-                        const { data: p, error: profileError } = await supabase
-                            .from("profiles")
-                            .select("id, full_name, role")
-                            .eq("id", u.id)
-                            .single();
-                        
-                        if (mounted) {
-                            if (profileError) {
-                                console.error("Error al obtener perfil:", profileError);
-                                setPerfil(null);
-                            } else {
-                                setPerfil(p ?? null);
+                    supabase
+                        .from("profiles")
+                        .select("id, full_name, role")
+                        .eq("id", u.id)
+                        .single()
+                        .then(({ data: p, error: profileError }) => {
+                            if (mounted) {
+                                if (profileError) {
+                                    console.error("Error al obtener perfil:", profileError);
+                                    setPerfil(null);
+                                } else {
+                                    setPerfil(p ?? null);
+                                }
                             }
-                            completeLoading();
-                        }
-                    } catch (err) {
-                        console.error("Excepción al obtener perfil:", err);
-                        if (mounted) {
-                            setPerfil(null);
-                            completeLoading();
-                        }
-                    }
+                        })
+                        .catch((err) => {
+                            console.error("Excepción al obtener perfil:", err);
+                            if (mounted) {
+                                setPerfil(null);
+                            }
+                        });
                 } else {
-                    if (mounted) {
-                        setPerfil(null);
-                        completeLoading();
-                    }
+                    setPerfil(null);
                 }
             } catch (err) {
                 console.error("Error inesperado al cargar:", err);
                 if (mounted) {
                     setUser(null);
                     setPerfil(null);
-                    completeLoading();
+                    setLoading(false);
                 }
             }
         })();
@@ -104,34 +76,34 @@ export default function CerecApp() {
             setUser(u);
 
             if (u) {
-                try {
-                    const { data: p, error: profileError } = await supabase
-                        .from("profiles")
-                        .select("id, full_name, role")
-                        .eq("id", u.id)
-                        .single();
-                    
-                    if (profileError) {
-                        console.error("Error al obtener perfil en cambio de estado:", profileError);
-                        setPerfil(null);
-                    } else {
-                        setPerfil(p ?? null);
-                    }
-                } catch (err) {
-                    console.error("Excepción al obtener perfil en cambio de estado:", err);
-                    setPerfil(null);
-                }
+                supabase
+                    .from("profiles")
+                    .select("id, full_name, role")
+                    .eq("id", u.id)
+                    .single()
+                    .then(({ data: p, error: profileError }) => {
+                        if (mounted) {
+                            if (profileError) {
+                                console.error("Error al obtener perfil en cambio de estado:", profileError);
+                                setPerfil(null);
+                            } else {
+                                setPerfil(p ?? null);
+                            }
+                        }
+                    })
+                    .catch((err) => {
+                        console.error("Excepción al obtener perfil en cambio de estado:", err);
+                        if (mounted) {
+                            setPerfil(null);
+                        }
+                    });
             } else {
                 setPerfil(null);
             }
-            
-            completeLoading();
         });
 
         return () => {
             mounted = false;
-            loadingCompleted = true;
-            clearTimeout(timeoutId);
             if (sub?.subscription) {
                 sub.subscription.unsubscribe();
             }

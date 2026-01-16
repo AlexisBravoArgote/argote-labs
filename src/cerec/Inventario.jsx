@@ -31,43 +31,57 @@ export default function Inventario({ user, perfil }) {
     }, [items, busqueda, categoria]);
 
     async function cargarMovimientos(offset = 0, limit = 50) {
-        const { data: m, error: mErr, count } = await supabase
-            .from("stock_movements")
-            .select("id, item_id, delta, reason, created_by, created_at", { count: "exact" })
-            .order("created_at", { ascending: false })
-            .range(offset, offset + limit - 1);
+        try {
+            const { data: m, error: mErr, count } = await supabase
+                .from("stock_movements")
+                .select("id, item_id, delta, reason, created_by, created_at", { count: "exact" })
+                .order("created_at", { ascending: false })
+                .range(offset, offset + limit - 1);
 
-        if (mErr) {
-            setError(mErr.message);
+            if (mErr) {
+                console.error("Error al cargar movimientos:", mErr);
+                setError(`Error al cargar historial: ${mErr.message}`);
+                return { movs: [], hasMore: false };
+            }
+
+            const movBase = m ?? [];
+            if (movBase.length === 0) {
+                return { movs: [], hasMore: false };
+            }
+
+            // Mapear nombres bonitos: items + perfiles
+            const itemIds = [...new Set(movBase.map((x) => x.item_id))];
+            const userIds = [...new Set(movBase.map((x) => x.created_by))];
+
+            const [{ data: itemNames, error: itemsErr }, { data: perfiles, error: profilesErr }] = await Promise.all([
+                supabase.from("items").select("id, name").in("id", itemIds.length ? itemIds : ["00000000-0000-0000-0000-000000000000"]),
+                supabase.from("profiles").select("id, full_name").in("id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]),
+            ]);
+
+            if (itemsErr) {
+                console.error("Error al cargar nombres de items:", itemsErr);
+            }
+            if (profilesErr) {
+                console.error("Error al cargar perfiles:", profilesErr);
+            }
+
+            const itemMap = new Map((itemNames ?? []).map((x) => [x.id, x.name]));
+            const userMap = new Map((perfiles ?? []).map((x) => [x.id, x.full_name || x.id]));
+
+            const movsMapeados = movBase.map((x) => ({
+                ...x,
+                item_name: itemMap.get(x.item_id) || x.item_id,
+                user_name: userMap.get(x.created_by) || x.created_by,
+            }));
+
+            const hasMore = count ? offset + limit < count : movBase.length === limit;
+
+            return { movs: movsMapeados, hasMore };
+        } catch (err) {
+            console.error("Error inesperado al cargar movimientos:", err);
+            setError(`Error inesperado al cargar historial: ${err.message}`);
             return { movs: [], hasMore: false };
         }
-
-        const movBase = m ?? [];
-        if (movBase.length === 0) {
-            return { movs: [], hasMore: false };
-        }
-
-        // Mapear nombres bonitos: items + perfiles
-        const itemIds = [...new Set(movBase.map((x) => x.item_id))];
-        const userIds = [...new Set(movBase.map((x) => x.created_by))];
-
-        const [{ data: itemNames }, { data: perfiles }] = await Promise.all([
-            supabase.from("items").select("id, name").in("id", itemIds.length ? itemIds : ["00000000-0000-0000-0000-000000000000"]),
-            supabase.from("profiles").select("id, full_name").in("id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]),
-        ]);
-
-        const itemMap = new Map((itemNames ?? []).map((x) => [x.id, x.name]));
-        const userMap = new Map((perfiles ?? []).map((x) => [x.id, x.full_name || x.id]));
-
-        const movsMapeados = movBase.map((x) => ({
-            ...x,
-            item_name: itemMap.get(x.item_id) || x.item_id,
-            user_name: userMap.get(x.created_by) || x.created_by,
-        }));
-
-        const hasMore = count ? offset + limit < count : movBase.length === limit;
-
-        return { movs: movsMapeados, hasMore };
     }
 
     async function cargarTrabajos() {
@@ -134,24 +148,32 @@ export default function Inventario({ user, perfil }) {
         setError("");
         setCargando(true);
 
-        const { data: it, error: iErr } = await supabase
-            .from("items")
-            .select("id, name, category, unit, current_qty, image_url")
-            .order("name", { ascending: true });
+        try {
+            const { data: it, error: iErr } = await supabase
+                .from("items")
+                .select("id, name, category, unit, current_qty, image_url")
+                .order("name", { ascending: true });
 
-        if (iErr) {
-            setError(iErr.message);
+            if (iErr) {
+                console.error("Error al cargar items:", iErr);
+                setError(`Error al cargar artículos: ${iErr.message}`);
+                setCargando(false);
+                return;
+            }
+            
+            setItems(it ?? []);
+
+            const { movs: movsData, hasMore } = await cargarMovimientos(0, 50);
+            setMovs(movsData);
+            setHasMoreMovs(hasMore);
+
+            await cargarTrabajos();
+        } catch (err) {
+            console.error("Error inesperado al cargar:", err);
+            setError(`Error inesperado: ${err.message}`);
+        } finally {
             setCargando(false);
-            return;
         }
-        setItems(it ?? []);
-
-        const { movs: movsData, hasMore } = await cargarMovimientos(0, 50);
-        setMovs(movsData);
-        setHasMoreMovs(hasMore);
-
-        await cargarTrabajos();
-        setCargando(false);
     }
 
     async function cargarMasMovimientos() {
