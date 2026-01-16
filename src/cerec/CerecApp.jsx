@@ -13,34 +13,48 @@ export default function CerecApp() {
     useEffect(() => {
         let mounted = true;
         let timeoutId;
+        let loadingCompleted = false;
 
-        // Timeout de seguridad para evitar carga infinita
-        timeoutId = setTimeout(() => {
-            if (mounted) {
-                console.warn("Timeout al cargar autenticación, forzando carga completa");
+        const completeLoading = () => {
+            if (mounted && !loadingCompleted) {
+                loadingCompleted = true;
+                clearTimeout(timeoutId);
                 setLoading(false);
             }
-        }, 5000); // 5 segundos máximo
+        };
 
+        // Timeout de seguridad - SIEMPRE ejecutar después de 5 segundos
+        timeoutId = setTimeout(() => {
+            if (mounted && !loadingCompleted) {
+                console.warn("TIMEOUT: Forzando cierre de sesión y redirección");
+                loadingCompleted = true;
+                setLoading(false);
+                setUser(null);
+                setPerfil(null);
+                // Forzar cierre de sesión y redirección inmediata
+                supabase.auth.signOut().finally(() => {
+                    window.location.href = "/cerec/login";
+                });
+            }
+        }, 2000);
+
+        // Cargar usuario inicial
         (async () => {
             try {
                 const { data, error } = await supabase.auth.getUser();
                 
+                if (!mounted) return;
+
                 if (error) {
                     console.error("Error al obtener usuario:", error);
-                    if (mounted) {
-                        setUser(null);
-                        setPerfil(null);
-                        setLoading(false);
-                    }
+                    setUser(null);
+                    setPerfil(null);
+                    completeLoading();
                     return;
                 }
 
                 const u = data.user ?? null;
-                
-                if (mounted) {
-                    setUser(u);
-                }
+                setUser(u);
 
                 if (u) {
                     try {
@@ -57,32 +71,32 @@ export default function CerecApp() {
                             } else {
                                 setPerfil(p ?? null);
                             }
+                            completeLoading();
                         }
                     } catch (err) {
                         console.error("Excepción al obtener perfil:", err);
                         if (mounted) {
                             setPerfil(null);
+                            completeLoading();
                         }
                     }
-                } else if (mounted) {
-                    setPerfil(null);
-                }
-
-                if (mounted) {
-                    clearTimeout(timeoutId);
-                    setLoading(false);
+                } else {
+                    if (mounted) {
+                        setPerfil(null);
+                        completeLoading();
+                    }
                 }
             } catch (err) {
                 console.error("Error inesperado al cargar:", err);
                 if (mounted) {
-                    clearTimeout(timeoutId);
                     setUser(null);
                     setPerfil(null);
-                    setLoading(false);
+                    completeLoading();
                 }
             }
         })();
 
+        // Escuchar cambios de autenticación
         const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
             if (!mounted) return;
 
@@ -110,10 +124,13 @@ export default function CerecApp() {
             } else {
                 setPerfil(null);
             }
+            
+            completeLoading();
         });
 
         return () => {
             mounted = false;
+            loadingCompleted = true;
             clearTimeout(timeoutId);
             if (sub?.subscription) {
                 sub.subscription.unsubscribe();
