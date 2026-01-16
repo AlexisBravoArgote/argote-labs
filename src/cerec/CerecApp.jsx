@@ -102,8 +102,34 @@ export default function CerecApp() {
             }
         });
 
+        // Cerrar sesión cuando se cierra la pestaña/navegador
+        // Usar pagehide que es más confiable que beforeunload
+        const handlePageHide = () => {
+            // Cerrar sesión cuando la página se oculta (cierre de pestaña/navegador)
+            // Usar navigator.sendBeacon si está disponible para mayor confiabilidad
+            if (navigator.sendBeacon) {
+                // Intentar cerrar sesión de forma síncrona
+                supabase.auth.signOut().catch(() => {});
+            } else {
+                // Fallback: cerrar sesión normalmente
+                supabase.auth.signOut().catch(() => {});
+            }
+        };
+
+        // También usar beforeunload como respaldo
+        const handleBeforeUnload = () => {
+            // Intentar cerrar sesión (puede no completarse si el navegador cierra muy rápido)
+            supabase.auth.signOut().catch(() => {});
+        };
+
+        // Agregar listeners
+        window.addEventListener('pagehide', handlePageHide);
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
         return () => {
             mounted = false;
+            window.removeEventListener('pagehide', handlePageHide);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
             if (sub?.subscription) {
                 sub.subscription.unsubscribe();
             }
