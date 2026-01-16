@@ -35,7 +35,23 @@ CREATE POLICY "All authenticated users can view stock movements" ON stock_moveme
     FOR SELECT
     USING (auth.role() = 'authenticated');
 
--- 6. Crear o reemplazar la función del trigger con SECURITY DEFINER
+-- 6. Eliminar TODOS los triggers existentes en stock_movements
+-- Esto asegura que no haya conflictos con triggers antiguos
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT trigger_name FROM information_schema.triggers WHERE event_object_table = 'stock_movements') LOOP
+        EXECUTE 'DROP TRIGGER IF EXISTS ' || quote_ident(r.trigger_name) || ' ON stock_movements';
+    END LOOP;
+END $$;
+
+-- 7. Eliminar funciones de trigger existentes que puedan estar causando problemas
+DROP FUNCTION IF EXISTS update_item_stock_on_movement() CASCADE;
+DROP FUNCTION IF EXISTS validate_item_exists() CASCADE;
+DROP FUNCTION IF EXISTS handle_stock_movement() CASCADE;
+
+-- 8. Crear o reemplazar la función del trigger con SECURITY DEFINER
 -- Esto es CRÍTICO: la función debe usar SECURITY DEFINER para poder acceder a items
 -- sin estar restringida por RLS
 CREATE OR REPLACE FUNCTION update_item_stock_on_movement()
@@ -46,37 +62,53 @@ SET search_path = public
 AS $$
 DECLARE
     item_record RECORD;
+    new_qty INTEGER;
 BEGIN
     -- Verificar que el item existe (usando SECURITY DEFINER, esto no está restringido por RLS)
-    SELECT * INTO item_record FROM items WHERE id = NEW.item_id;
+    -- Usamos FOR UPDATE para evitar problemas de concurrencia
+    SELECT * INTO item_record FROM items WHERE id = NEW.item_id FOR UPDATE;
     
     IF NOT FOUND THEN
         RAISE EXCEPTION 'item no existe';
     END IF;
     
+    -- Calcular el nuevo stock
+    new_qty := item_record.current_qty + NEW.delta;
+    
+    -- Verificar que el stock no sea negativo
+    IF new_qty < 0 THEN
+        RAISE EXCEPTION 'Stock insuficiente: no se puede retirar más de lo disponible. Stock actual: %', item_record.current_qty;
+    END IF;
+    
     -- Actualizar current_qty en items
     UPDATE items
-    SET current_qty = current_qty + NEW.delta
+    SET current_qty = new_qty
     WHERE id = NEW.item_id;
-    
-    -- Verificar que current_qty no sea negativo
-    SELECT current_qty INTO item_record FROM items WHERE id = NEW.item_id;
-    IF item_record.current_qty < 0 THEN
-        RAISE EXCEPTION 'Stock insuficiente: no se puede retirar más de lo disponible';
-    END IF;
     
     RETURN NEW;
 END;
 $$;
 
--- 7. Crear o reemplazar el trigger
-DROP TRIGGER IF EXISTS trigger_update_item_stock ON stock_movements;
-
+-- 9. Crear el trigger
 CREATE TRIGGER trigger_update_item_stock
     BEFORE INSERT ON stock_movements
     FOR EACH ROW
     EXECUTE FUNCTION update_item_stock_on_movement();
 
--- 8. Verificar que todo está correcto
+-- 10. Asegurar que todos los usuarios autenticados puedan leer perfiles
+-- Esto es necesario para que se muestren los nombres en lugar de UIDs en el historial
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+-- Eliminar políticas restrictivas existentes
+DROP POLICY IF EXISTS "Users can only view their own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can view profiles" ON profiles;
+DROP POLICY IF EXISTS "All authenticated users can view all profiles" ON profiles;
+
+-- Crear política que permita a todos los usuarios autenticados leer todos los perfiles
+CREATE POLICY "All authenticated users can view all profiles" ON profiles
+    FOR SELECT
+    USING (auth.role() = 'authenticated');
+
+-- 11. Verificar que todo está correcto
 -- Puedes ejecutar esto para verificar las políticas:
--- SELECT * FROM pg_policies WHERE tablename IN ('items', 'stock_movements');
+-- SELECT * FROM pg_policies WHERE tablename IN ('items', 'stock_movements', 'profiles');

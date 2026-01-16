@@ -208,8 +208,15 @@ export default function Inventario({ user, perfil }) {
         });
 
         if (error) {
-            // Ejemplo típico: stock insuficiente por trigger
-            setError(error.message);
+            // Mejorar mensajes de error comunes
+            if (error.message.includes('item no existe')) {
+                setError("Error: El artículo no existe. Por favor, actualiza la página e intenta de nuevo.");
+            } else if (error.message.includes('Stock insuficiente')) {
+                setError(error.message);
+            } else {
+                setError(`Error: ${error.message}`);
+            }
+            console.error("Error al registrar movimiento:", error);
             return;
         }
 
