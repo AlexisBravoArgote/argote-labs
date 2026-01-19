@@ -17,6 +17,8 @@ export default function Inventario({ user, perfil }) {
 
     const [modalItem, setModalItem] = useState(null);
     const [mostrarModalTrabajo, setMostrarModalTrabajo] = useState(false);
+    const [mostrarModalFresar, setMostrarModalFresar] = useState(false);
+    const [trabajoParaFresar, setTrabajoParaFresar] = useState(null);
     const [trabajosPendientes, setTrabajosPendientes] = useState([]);
     const [historialTrabajos, setHistorialTrabajos] = useState([]);
     const [cargandoTrabajos, setCargandoTrabajos] = useState(false);
@@ -90,7 +92,7 @@ export default function Inventario({ user, perfil }) {
         // Cargar trabajos en proceso
         const { data: pendientes, error: errPendientes } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, created_by, created_at")
+            .select("id, treatment_type, treatment_name, patient_name, created_by, created_at, etapa, fecha_espera")
             .eq("status", "pending")
             .order("created_at", { ascending: false });
 
@@ -117,7 +119,7 @@ export default function Inventario({ user, perfil }) {
         // Cargar historial de trabajos
         const { data: historial, error: errHistorial } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, status, created_by, completed_by, created_at, completed_at")
+            .select("id, treatment_type, treatment_name, patient_name, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera")
             .order("created_at", { ascending: false })
             .limit(50);
 
@@ -281,6 +283,8 @@ export default function Inventario({ user, perfil }) {
                     treatment_name: datosTrabajo.treatment_name,
                     patient_name: datosTrabajo.patient_name,
                     status: "pending",
+                    etapa: "diseño",
+                    fecha_espera: datosTrabajo.fecha_espera,
                     created_by: user.id
                 })
                 .select()
@@ -374,6 +378,76 @@ export default function Inventario({ user, perfil }) {
         };
         
         return nombres[trabajo.treatment_type] || trabajo.treatment_type;
+    }
+
+    function necesitaFresado(trabajo) {
+        const tiposConFresado = ["corona_implante", "coronas", "carillas", "incrustaciones", "diseno_sonrisa", "otra"];
+        return tiposConFresado.includes(trabajo.treatment_type);
+    }
+
+    function abrirModalFresar(trabajo) {
+        setTrabajoParaFresar(trabajo);
+        setMostrarModalFresar(true);
+    }
+
+    async function confirmarFresado(materiales) {
+        if (!trabajoParaFresar || !materiales || materiales.length === 0) {
+            setError("Debes seleccionar al menos un cubo para fresar.");
+            return;
+        }
+
+        setError("");
+        setMostrarModalFresar(false);
+
+        try {
+            // 1. Crear registros de materiales del trabajo
+            const materialesInsert = materiales.map(m => ({
+                job_id: trabajoParaFresar.id,
+                item_id: m.item_id,
+                quantity: m.quantity
+            }));
+
+            const { error: errMateriales } = await supabase
+                .from("job_materials")
+                .insert(materialesInsert);
+
+            if (errMateriales) {
+                setError(`Error al registrar materiales: ${errMateriales.message}`);
+                return;
+            }
+
+            // 2. Restar del inventario y crear movimientos
+            for (const material of materiales) {
+                const { error: errMovimiento } = await supabase
+                    .from("stock_movements")
+                    .insert({
+                        item_id: material.item_id,
+                        delta: -material.quantity,
+                        reason: `Fresado - Trabajo: ${trabajoParaFresar.patient_name} - ${obtenerNombreTratamiento(trabajoParaFresar)}`,
+                        created_by: user.id
+                    });
+
+                if (errMovimiento) {
+                    console.error(`Error al restar inventario para ${material.item_name}:`, errMovimiento);
+                }
+            }
+
+            // 3. Actualizar etapa del trabajo a "fresado"
+            const { error: errEtapa } = await supabase
+                .from("jobs")
+                .update({ etapa: "fresado" })
+                .eq("id", trabajoParaFresar.id);
+
+            if (errEtapa) {
+                setError(`Error al actualizar etapa: ${errEtapa.message}`);
+                return;
+            }
+
+            setTrabajoParaFresar(null);
+            await cargar();
+        } catch (err) {
+            setError(`Error inesperado: ${err.message}`);
+        }
     }
 
     return (
@@ -471,21 +545,41 @@ export default function Inventario({ user, perfil }) {
             ) : (
                 <div className="grid gap-2 mt-3">
                     {trabajosPendientes.map((trabajo) => (
-                        <div key={trabajo.id} className="border rounded p-3 flex justify-between items-center">
-                            <div>
-                                <div className="font-semibold">
-                                    {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
+                        <div key={trabajo.id} className="border rounded p-3">
+                            <div className="flex justify-between items-start mb-2">
+                                <div className="flex-1">
+                                    <div className="font-semibold">
+                                        {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
+                                    </div>
+                                    <div className="text-sm text-gray-600">
+                                        Iniciado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
+                                    </div>
+                                    {trabajo.fecha_espera && (
+                                        <div className="text-sm text-blue-600 mt-1">
+                                            Fecha esperada: {new Date(trabajo.fecha_espera).toLocaleDateString("es-MX")}
+                                        </div>
+                                    )}
+                                    <div className="text-sm font-medium mt-1">
+                                        Etapa: <span className="text-purple-600">{trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}</span>
+                                    </div>
                                 </div>
-                                <div className="text-sm text-gray-600">
-                                    Iniciado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
+                                <div className="flex gap-2">
+                                    {necesitaFresado(trabajo) && trabajo.etapa === "diseño" && (
+                                        <button
+                                            onClick={() => abrirModalFresar(trabajo)}
+                                            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
+                                        >
+                                            Fresar
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => finalizarTrabajo(trabajo.id)}
+                                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm"
+                                    >
+                                        Trabajo finalizado
+                                    </button>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => finalizarTrabajo(trabajo.id)}
-                                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm"
-                            >
-                                Trabajo finalizado
-                            </button>
                         </div>
                     ))}
                 </div>
@@ -515,6 +609,12 @@ export default function Inventario({ user, perfil }) {
                                         <span className="text-orange-600 font-medium">Pendiente</span> ·{" "}
                                         {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
                                     </>
+                                )}
+                                {trabajo.fecha_espera && (
+                                    <> · <span className="text-blue-600">Esperado: {new Date(trabajo.fecha_espera).toLocaleDateString("es-MX")}</span></>
+                                )}
+                                {trabajo.etapa && (
+                                    <> · <span className="text-purple-600">Etapa: {trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}</span></>
                                 )}
                             </div>
                         </div>
@@ -565,6 +665,198 @@ export default function Inventario({ user, perfil }) {
                     onConfirm={crearTrabajo}
                 />
             )}
+
+            {mostrarModalFresar && trabajoParaFresar && (
+                <ModalFresar
+                    trabajo={trabajoParaFresar}
+                    items={items.filter(item => item.category === "bloc")}
+                    onClose={() => {
+                        setMostrarModalFresar(false);
+                        setTrabajoParaFresar(null);
+                    }}
+                    onConfirm={confirmarFresado}
+                />
+            )}
+        </div>
+    );
+}
+
+// Componente Modal para Fresar
+function ModalFresar({ trabajo, items, onClose, onConfirm }) {
+    const [materialesSeleccionados, setMaterialesSeleccionados] = useState([]);
+    const [busqueda, setBusqueda] = useState("");
+    const [error, setError] = useState("");
+
+    const itemsFiltrados = items.filter(item => 
+        !busqueda.trim() || item.name.toLowerCase().includes(busqueda.trim().toLowerCase())
+    );
+
+    function agregarMaterial(item) {
+        const existente = materialesSeleccionados.find(m => m.item_id === item.id);
+        if (existente) {
+            setMaterialesSeleccionados(
+                materialesSeleccionados.map(m =>
+                    m.item_id === item.id
+                        ? { ...m, quantity: m.quantity + 1 }
+                        : m
+                )
+            );
+        } else {
+            setMaterialesSeleccionados([
+                ...materialesSeleccionados,
+                { item_id: item.id, item_name: item.name, quantity: 1 }
+            ]);
+        }
+    }
+
+    function quitarMaterial(itemId) {
+        setMaterialesSeleccionados(
+            materialesSeleccionados.filter(m => m.item_id !== itemId)
+        );
+    }
+
+    function ajustarCantidad(itemId, delta) {
+        setMaterialesSeleccionados(
+            materialesSeleccionados.map(m => {
+                if (m.item_id === itemId) {
+                    const nuevaCantidad = Math.max(0, m.quantity + delta);
+                    if (nuevaCantidad === 0) {
+                        return null;
+                    }
+                    return { ...m, quantity: nuevaCantidad };
+                }
+                return m;
+            }).filter(Boolean)
+        );
+    }
+
+    function validarYConfirmar() {
+        setError("");
+
+        if (materialesSeleccionados.length === 0) {
+            setError("Debes seleccionar al menos un cubo para fresar.");
+            return;
+        }
+
+        // Validar stock
+        for (const material of materialesSeleccionados) {
+            const item = items.find(i => i.id === material.item_id);
+            if (!item) {
+                setError(`El artículo ${material.item_name} no se encuentra disponible.`);
+                return;
+            }
+            if (item.current_qty < material.quantity) {
+                setError(`Stock insuficiente para ${material.item_name}. Disponible: ${item.current_qty}`);
+                return;
+            }
+        }
+
+        onConfirm(materialesSeleccionados);
+    }
+
+    return (
+        <div
+            className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+            onClick={onClose}
+        >
+            <div
+                className="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h3 className="text-xl font-bold mb-4">Fresar - {trabajo.patient_name}</h3>
+
+                {error && <div className="text-red-600 mb-4 text-sm">{error}</div>}
+
+                <div className="mb-4">
+                    <label className="text-sm font-medium block mb-2">
+                        Seleccionar cubos para fresar
+                    </label>
+                    <input
+                        type="text"
+                        value={busqueda}
+                        onChange={(e) => setBusqueda(e.target.value)}
+                        placeholder="Buscar cubos..."
+                        className="border rounded p-2 w-full mb-3"
+                    />
+
+                    <div className="border rounded p-3 space-y-2 max-h-60 overflow-y-auto">
+                        {itemsFiltrados.length === 0 ? (
+                            <p className="text-sm text-gray-500">No hay cubos disponibles.</p>
+                        ) : (
+                            itemsFiltrados.map(item => {
+                                const materialSeleccionado = materialesSeleccionados.find(m => m.item_id === item.id);
+                                
+                                return (
+                                    <div key={item.id} className="flex items-center justify-between p-2 border rounded">
+                                        <div className="flex-1">
+                                            <div className="font-medium text-sm">{item.name}</div>
+                                            <div className="text-xs text-gray-600">
+                                                Stock: {item.current_qty} {item.unit}
+                                            </div>
+                                        </div>
+                                        {materialSeleccionado ? (
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => ajustarCantidad(item.id, -1)}
+                                                    className="w-6 h-6 rounded border flex items-center justify-center"
+                                                >
+                                                    -
+                                                </button>
+                                                <span className="w-8 text-center text-sm">{materialSeleccionado.quantity}</span>
+                                                <button
+                                                    onClick={() => ajustarCantidad(item.id, 1)}
+                                                    disabled={item.current_qty <= materialSeleccionado.quantity}
+                                                    className="w-6 h-6 rounded border flex items-center justify-center disabled:opacity-50"
+                                                >
+                                                    +
+                                                </button>
+                                                <button
+                                                    onClick={() => quitarMaterial(item.id)}
+                                                    className="text-red-600 text-xs ml-2"
+                                                >
+                                                    Quitar
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => agregarMaterial(item)}
+                                                className="text-sm border px-2 py-1 rounded hover:bg-gray-50"
+                                            >
+                                                Agregar
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+
+                    {materialesSeleccionados.length > 0 && (
+                        <div className="mt-3 p-3 bg-gray-50 rounded">
+                            <div className="text-sm font-medium mb-2">Cubos seleccionados:</div>
+                            <div className="space-y-1">
+                                {materialesSeleccionados.map(m => (
+                                    <div key={m.item_id} className="text-sm">
+                                        {m.item_name} × {m.quantity}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex justify-end gap-2 mt-6">
+                    <button onClick={onClose} className="border px-4 py-2 rounded hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={validarYConfirmar}
+                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                    >
+                        Confirmar fresado
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }

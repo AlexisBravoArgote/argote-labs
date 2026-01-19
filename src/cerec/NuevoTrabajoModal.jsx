@@ -1,22 +1,23 @@
 import { useState, useEffect, useMemo } from "react";
 
 const TIPOS_TRATAMIENTO = [
-    { value: "corona_implante", label: "Corona sobre implante", requiereMateriales: true, materialesObligatorios: ["cubo", "aditamiento"] },
+    { value: "corona_implante", label: "Corona sobre implante", requiereMateriales: false, fresadoDespues: true },
     { value: "guia_quirurgica", label: "Guía quirúrgica", requiereMateriales: false },
     { value: "guardas", label: "Guardas", requiereMateriales: false },
     { value: "modelo_ortodoncia", label: "Modelo de ortodoncia", requiereMateriales: false },
-    { value: "diseno_sonrisa", label: "Diseño de sonrisa", requiereMateriales: true, materialesOpcionales: ["cubo"] },
+    { value: "diseno_sonrisa", label: "Diseño de sonrisa", requiereMateriales: false, fresadoDespues: true },
     { value: "rehabilitacion_completa", label: "Rehabilitación completa", requiereMateriales: true, materialesOpcionales: ["cubo"] },
-    { value: "coronas", label: "Coronas", requiereMateriales: true, materialesOpcionales: ["cubo"] },
-    { value: "carillas", label: "Carillas", requiereMateriales: true, materialesOpcionales: ["cubo"] },
-    { value: "incrustaciones", label: "Incrustaciones", requiereMateriales: true, materialesOpcionales: ["cubo"] },
-    { value: "otra", label: "Otra", requiereMateriales: true, materialesOpcionales: ["cubo"], requiereNombre: true },
+    { value: "coronas", label: "Coronas", requiereMateriales: false, fresadoDespues: true },
+    { value: "carillas", label: "Carillas", requiereMateriales: false, fresadoDespues: true },
+    { value: "incrustaciones", label: "Incrustaciones", requiereMateriales: false, fresadoDespues: true },
+    { value: "otra", label: "Otra", requiereMateriales: false, fresadoDespues: true, requiereNombre: true },
 ];
 
 export default function NuevoTrabajoModal({ items, onClose, onConfirm }) {
     const [tipoTratamiento, setTipoTratamiento] = useState("");
     const [nombreTratamiento, setNombreTratamiento] = useState("");
     const [nombrePaciente, setNombrePaciente] = useState("");
+    const [fechaEspera, setFechaEspera] = useState("");
     const [materialesSeleccionados, setMaterialesSeleccionados] = useState([]);
     const [busquedaMateriales, setBusquedaMateriales] = useState("");
     const [error, setError] = useState("");
@@ -123,8 +124,13 @@ export default function NuevoTrabajoModal({ items, onClose, onConfirm }) {
             return;
         }
 
-        // Validar materiales obligatorios para corona sobre implante
-        if (tipoTratamiento === "corona_implante") {
+        if (!fechaEspera) {
+            setError("Por favor selecciona la fecha de espera.");
+            return;
+        }
+
+        // Validar materiales obligatorios para corona sobre implante (solo si requiereMateriales es true)
+        if (tipoTratamiento === "corona_implante" && requiereMateriales) {
             const tieneCubo = materialesSeleccionados.some(m => {
                 const item = items.find(i => i.id === m.item_id);
                 return item?.category === "bloc";
@@ -158,6 +164,7 @@ export default function NuevoTrabajoModal({ items, onClose, onConfirm }) {
             treatment_type: tipoTratamiento,
             treatment_name: requiereNombre ? nombreTratamiento.trim() : null,
             patient_name: nombrePaciente.trim(),
+            fecha_espera: fechaEspera,
             materials: materialesSeleccionados
         });
     }
@@ -213,6 +220,17 @@ export default function NuevoTrabajoModal({ items, onClose, onConfirm }) {
                             onChange={(e) => setNombrePaciente(e.target.value)}
                             placeholder="Nombre completo del paciente"
                             className="border rounded p-2 w-full mt-1"
+                        />
+                    </label>
+
+                    <label className="text-sm font-medium">
+                        Fecha de espera *
+                        <input
+                            type="date"
+                            value={fechaEspera}
+                            onChange={(e) => setFechaEspera(e.target.value)}
+                            className="border rounded p-2 w-full mt-1"
+                            min={new Date().toISOString().split('T')[0]}
                         />
                     </label>
 
