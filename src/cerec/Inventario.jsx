@@ -14,6 +14,14 @@ export default function Inventario({ user, perfil }) {
 
     const [busqueda, setBusqueda] = useState("");
     const [categoria, setCategoria] = useState("todas");
+    const [busquedaHistorial, setBusquedaHistorial] = useState("");
+    const [busquedaTrabajos, setBusquedaTrabajos] = useState("");
+
+    // Paginación
+    const [paginaItems, setPaginaItems] = useState(1);
+    const [paginaMovs, setPaginaMovs] = useState(1);
+    const [paginaTrabajos, setPaginaTrabajos] = useState(1);
+    const itemsPorPagina = 4;
 
     const [modalItem, setModalItem] = useState(null);
     const [mostrarModalTrabajo, setMostrarModalTrabajo] = useState(false);
@@ -23,6 +31,26 @@ export default function Inventario({ user, perfil }) {
     const [historialTrabajos, setHistorialTrabajos] = useState([]);
     const [cargandoTrabajos, setCargandoTrabajos] = useState(false);
 
+    // Función para obtener nombre de tratamiento (debe estar antes de los useMemo)
+    function obtenerNombreTratamiento(trabajo) {
+        if (trabajo.treatment_name) return trabajo.treatment_name;
+        
+        const nombres = {
+            "corona_implante": "Corona sobre implante",
+            "guia_quirurgica": "Guía quirúrgica",
+            "guardas": "Guardas",
+            "modelo_ortodoncia": "Modelo de ortodoncia",
+            "diseno_sonrisa": "Diseño de sonrisa",
+            "rehabilitacion_completa": "Rehabilitación completa",
+            "coronas": "Coronas",
+            "carillas": "Carillas",
+            "incrustaciones": "Incrustaciones",
+            "otra": "Otro"
+        };
+        
+        return nombres[trabajo.treatment_type] || trabajo.treatment_type;
+    }
+
     const itemsFiltrados = useMemo(() => {
         const q = busqueda.trim().toLowerCase();
         return items.filter((it) => {
@@ -31,6 +59,58 @@ export default function Inventario({ user, perfil }) {
             return okTexto && okCat;
         });
     }, [items, busqueda, categoria]);
+
+    // Filtrar y paginar items
+    const itemsPaginados = useMemo(() => {
+        const inicio = (paginaItems - 1) * itemsPorPagina;
+        const fin = inicio + itemsPorPagina;
+        return itemsFiltrados.slice(inicio, fin);
+    }, [itemsFiltrados, paginaItems]);
+
+    const totalPaginasItems = Math.ceil(itemsFiltrados.length / itemsPorPagina);
+
+    // Filtrar movimientos por búsqueda
+    const movsFiltrados = useMemo(() => {
+        const q = busquedaHistorial.trim().toLowerCase();
+        if (!q) return movs;
+        return movs.filter(m => 
+            m.item_name?.toLowerCase().includes(q) ||
+            m.user_name?.toLowerCase().includes(q) ||
+            m.reason?.toLowerCase().includes(q) ||
+            m.delta?.toString().includes(q)
+        );
+    }, [movs, busquedaHistorial]);
+
+    // Paginar movimientos
+    const movsPaginados = useMemo(() => {
+        const inicio = (paginaMovs - 1) * itemsPorPagina;
+        const fin = inicio + itemsPorPagina;
+        return movsFiltrados.slice(inicio, fin);
+    }, [movsFiltrados, paginaMovs]);
+
+    const totalPaginasMovs = Math.ceil(movsFiltrados.length / itemsPorPagina);
+
+    // Filtrar trabajos por búsqueda
+    const trabajosFiltrados = useMemo(() => {
+        const q = busquedaTrabajos.trim().toLowerCase();
+        if (!q) return historialTrabajos;
+        return historialTrabajos.filter(t => 
+            t.patient_name?.toLowerCase().includes(q) ||
+            t.treatment_name?.toLowerCase().includes(q) ||
+            obtenerNombreTratamiento(t).toLowerCase().includes(q) ||
+            t.created_by_name?.toLowerCase().includes(q) ||
+            t.completed_by_name?.toLowerCase().includes(q)
+        );
+    }, [historialTrabajos, busquedaTrabajos]);
+
+    // Paginar trabajos
+    const trabajosPaginados = useMemo(() => {
+        const inicio = (paginaTrabajos - 1) * itemsPorPagina;
+        const fin = inicio + itemsPorPagina;
+        return trabajosFiltrados.slice(inicio, fin);
+    }, [trabajosFiltrados, paginaTrabajos]);
+
+    const totalPaginasTrabajos = Math.ceil(trabajosFiltrados.length / itemsPorPagina);
 
     async function cargarMovimientos(offset = 0, limit = 50) {
         try {
@@ -361,25 +441,6 @@ export default function Inventario({ user, perfil }) {
         await cargarTrabajos();
     }
 
-    function obtenerNombreTratamiento(trabajo) {
-        if (trabajo.treatment_name) return trabajo.treatment_name;
-        
-        const nombres = {
-            "corona_implante": "Corona sobre implante",
-            "guia_quirurgica": "Guía quirúrgica",
-            "guardas": "Guardas",
-            "modelo_ortodoncia": "Modelo de ortodoncia",
-            "diseno_sonrisa": "Diseño de sonrisa",
-            "rehabilitacion_completa": "Rehabilitación completa",
-            "coronas": "Coronas",
-            "carillas": "Carillas",
-            "incrustaciones": "Incrustaciones",
-            "otra": "Otro"
-        };
-        
-        return nombres[trabajo.treatment_type] || trabajo.treatment_type;
-    }
-
     function necesitaFresado(trabajo) {
         const tiposConFresado = ["corona_implante", "coronas", "carillas", "incrustaciones", "diseno_sonrisa", "otra"];
         return tiposConFresado.includes(trabajo.treatment_type);
@@ -478,13 +539,19 @@ export default function Inventario({ user, perfil }) {
             <div className="mt-6 grid gap-2 sm:grid-cols-3">
                 <input
                     value={busqueda}
-                    onChange={(e) => setBusqueda(e.target.value)}
+                    onChange={(e) => {
+                        setBusqueda(e.target.value);
+                        setPaginaItems(1); // Resetear a página 1 al buscar
+                    }}
                     placeholder="Buscar artículo…"
                     className="border rounded p-2"
                 />
                 <select
                     value={categoria}
-                    onChange={(e) => setCategoria(e.target.value)}
+                    onChange={(e) => {
+                        setCategoria(e.target.value);
+                        setPaginaItems(1); // Resetear a página 1 al cambiar categoría
+                    }}
                     className="border rounded p-2"
                 >
                     <option value="todas">Todas las categorías</option>
@@ -502,30 +569,53 @@ export default function Inventario({ user, perfil }) {
             {cargando ? (
                 <div className="mt-3 text-gray-600">Cargando…</div>
             ) : (
-                <div className="grid gap-2 mt-3">
-                    {itemsFiltrados.map((it) => (
-                        <div key={it.id} className="border rounded p-3 flex justify-between gap-3">
-                            <div>
-                                <div className="font-semibold">{it.name}</div>
-                                <div className="text-sm text-gray-600">
-                                    Stock: <b>{it.current_qty}</b> {it.unit} ·{" "}
-                                    {it.category === "bloc"
-                                        ? "Bloque"
-                                        : it.category === "bur"
-                                            ? "Fresa"
-                                            : "Otro"}
+                <>
+                    <div className="grid gap-2 mt-3">
+                        {itemsPaginados.map((it) => (
+                            <div key={it.id} className="border rounded p-3 flex justify-between gap-3">
+                                <div>
+                                    <div className="font-semibold">{it.name}</div>
+                                    <div className="text-sm text-gray-600">
+                                        Stock: <b>{it.current_qty}</b> {it.unit} ·{" "}
+                                        {it.category === "bloc"
+                                            ? "Bloque"
+                                            : it.category === "bur"
+                                                ? "Fresa"
+                                                : "Otro"}
+                                    </div>
                                 </div>
-                            </div>
 
+                                <button
+                                    onClick={() => setModalItem(it)}
+                                    className="bg-black text-white px-3 py-2 rounded"
+                                >
+                                    Agregar / Retirar
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                    {totalPaginasItems > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-4">
                             <button
-                                onClick={() => setModalItem(it)}
-                                className="bg-black text-white px-3 py-2 rounded"
+                                onClick={() => setPaginaItems(p => Math.max(1, p - 1))}
+                                disabled={paginaItems === 1}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Agregar / Retirar
+                                Anterior
+                            </button>
+                            <span className="text-sm text-gray-600">
+                                Página {paginaItems} de {totalPaginasItems} ({itemsFiltrados.length} artículos)
+                            </span>
+                            <button
+                                onClick={() => setPaginaItems(p => Math.min(totalPaginasItems, p + 1))}
+                                disabled={paginaItems === totalPaginasItems}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Siguiente
                             </button>
                         </div>
-                    ))}
-                </div>
+                    )}
+                </>
             )}
 
             <div className="flex items-center justify-between mt-10">
@@ -585,15 +675,34 @@ export default function Inventario({ user, perfil }) {
                 </div>
             )}
 
-            <h2 className="text-lg font-semibold mt-10">Historial de trabajos</h2>
+            <div className="flex items-center justify-between mt-10">
+                <h2 className="text-lg font-semibold">Historial de trabajos</h2>
+            </div>
 
             {cargandoTrabajos ? (
                 <div className="mt-3 text-gray-600">Cargando…</div>
             ) : historialTrabajos.length === 0 ? (
                 <div className="mt-3 text-gray-500 text-sm">No hay trabajos en el historial.</div>
             ) : (
-                <div className="grid gap-2 mt-3">
-                    {historialTrabajos.map((trabajo) => (
+                <>
+                    <div className="mt-3 mb-3">
+                        <input
+                            type="text"
+                            value={busquedaTrabajos}
+                            onChange={(e) => {
+                                setBusquedaTrabajos(e.target.value);
+                                setPaginaTrabajos(1); // Resetear a página 1 al buscar
+                            }}
+                            placeholder="Buscar en historial de trabajos..."
+                            className="border rounded p-2 w-full"
+                        />
+                    </div>
+                    {trabajosFiltrados.length === 0 ? (
+                        <div className="mt-3 text-gray-500 text-sm">No se encontraron trabajos con esa búsqueda.</div>
+                    ) : (
+                        <>
+                            <div className="grid gap-2 mt-3">
+                                {trabajosPaginados.map((trabajo) => (
                         <div key={trabajo.id} className="border rounded p-3">
                             <div className="font-semibold">
                                 {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
@@ -619,35 +728,89 @@ export default function Inventario({ user, perfil }) {
                             </div>
                         </div>
                     ))}
-                </div>
+                            </div>
+                            {totalPaginasTrabajos > 1 && (
+                                <div className="flex items-center justify-center gap-2 mt-4">
+                                    <button
+                                        onClick={() => setPaginaTrabajos(p => Math.max(1, p - 1))}
+                                        disabled={paginaTrabajos === 1}
+                                        className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Anterior
+                                    </button>
+                                    <span className="text-sm text-gray-600">
+                                        Página {paginaTrabajos} de {totalPaginasTrabajos} ({trabajosFiltrados.length} trabajos)
+                                    </span>
+                                    <button
+                                        onClick={() => setPaginaTrabajos(p => Math.min(totalPaginasTrabajos, p + 1))}
+                                        disabled={paginaTrabajos === totalPaginasTrabajos}
+                                        className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Siguiente
+                                    </button>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </>
             )}
 
-            <h2 className="text-lg font-semibold mt-10">Historial global ({movs.length} movimientos mostrados)</h2>
-
-            <div className="grid gap-2 mt-3">
-                {movs.map((m) => (
-                    <div key={m.id} className="border rounded p-3">
-                        <div className="font-semibold">
-                            {m.delta > 0 ? `+${m.delta}` : m.delta} · {m.item_name}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                            {new Date(m.created_at).toLocaleString("es-MX")} · {m.user_name}
-                            {m.reason ? ` · ${m.reason}` : ""}
-                        </div>
-                    </div>
-                ))}
+            <div className="flex items-center justify-between mt-10">
+                <h2 className="text-lg font-semibold">Historial global</h2>
             </div>
 
-            {hasMoreMovs && (
-                <div className="mt-4 flex justify-center">
-                    <button
-                        onClick={cargarMasMovimientos}
-                        disabled={cargandoMasMovs}
-                        className="border rounded px-4 py-2 bg-white hover:bg-gray-50 disabled:opacity-50"
-                    >
-                        {cargandoMasMovs ? "Cargando..." : "Cargar más (50 movimientos)"}
-                    </button>
-                </div>
+            <div className="mt-3 mb-3">
+                <input
+                    type="text"
+                    value={busquedaHistorial}
+                    onChange={(e) => {
+                        setBusquedaHistorial(e.target.value);
+                        setPaginaMovs(1); // Resetear a página 1 al buscar
+                    }}
+                    placeholder="Buscar en historial global..."
+                    className="border rounded p-2 w-full"
+                />
+            </div>
+
+            {movsFiltrados.length === 0 ? (
+                <div className="mt-3 text-gray-500 text-sm">No se encontraron movimientos con esa búsqueda.</div>
+            ) : (
+                <>
+                    <div className="grid gap-2 mt-3">
+                        {movsPaginados.map((m) => (
+                            <div key={m.id} className="border rounded p-3">
+                                <div className="font-semibold">
+                                    {m.delta > 0 ? `+${m.delta}` : m.delta} · {m.item_name}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                    {new Date(m.created_at).toLocaleString("es-MX")} · {m.user_name}
+                                    {m.reason ? ` · ${m.reason}` : ""}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {totalPaginasMovs > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-4">
+                            <button
+                                onClick={() => setPaginaMovs(p => Math.max(1, p - 1))}
+                                disabled={paginaMovs === 1}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Anterior
+                            </button>
+                            <span className="text-sm text-gray-600">
+                                Página {paginaMovs} de {totalPaginasMovs} ({movsFiltrados.length} movimientos)
+                            </span>
+                            <button
+                                onClick={() => setPaginaMovs(p => Math.min(totalPaginasMovs, p + 1))}
+                                disabled={paginaMovs === totalPaginasMovs}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Siguiente
+                            </button>
+                        </div>
+                    )}
+                </>
             )}
 
             {modalItem && (
