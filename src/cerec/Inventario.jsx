@@ -14,8 +14,11 @@ export default function Inventario({ user, perfil }) {
 
     const [busqueda, setBusqueda] = useState("");
     const [categoria, setCategoria] = useState("todas");
+    const [tagsFiltrados, setTagsFiltrados] = useState([]);
     const [busquedaHistorial, setBusquedaHistorial] = useState("");
     const [busquedaTrabajos, setBusquedaTrabajos] = useState("");
+
+    const TAGS_DISPONIBLES = ["E.MAX", "RECICLADO", "SIRONA"];
 
     // Paginación
     const [paginaItems, setPaginaItems] = useState(1);
@@ -56,9 +59,17 @@ export default function Inventario({ user, perfil }) {
         return items.filter((it) => {
             const okTexto = !q || it.name.toLowerCase().includes(q);
             const okCat = categoria === "todas" || it.category === categoria;
-            return okTexto && okCat;
+            
+            // Filtrar por tags: si hay tags seleccionados, el item debe tener al menos uno
+            let okTags = true;
+            if (tagsFiltrados.length > 0) {
+                const itemTags = it.tags || [];
+                okTags = tagsFiltrados.some(tag => itemTags.includes(tag));
+            }
+            
+            return okTexto && okCat && okTags;
         });
-    }, [items, busqueda, categoria]);
+    }, [items, busqueda, categoria, tagsFiltrados]);
 
     // Filtrar y paginar items
     const itemsPaginados = useMemo(() => {
@@ -233,7 +244,7 @@ export default function Inventario({ user, perfil }) {
         try {
             const { data: it, error: iErr } = await supabase
                 .from("items")
-                .select("id, name, category, unit, current_qty, image_url")
+                .select("id, name, category, unit, current_qty, image_url, tags")
                 .order("name", { ascending: true });
 
             if (iErr) {
@@ -536,89 +547,7 @@ export default function Inventario({ user, perfil }) {
 
             {error && <div className="text-red-600 mt-4">{error}</div>}
 
-            <div className="mt-6 grid gap-2 sm:grid-cols-3">
-                <input
-                    value={busqueda}
-                    onChange={(e) => {
-                        setBusqueda(e.target.value);
-                        setPaginaItems(1); // Resetear a página 1 al buscar
-                    }}
-                    placeholder="Buscar artículo…"
-                    className="border rounded p-2"
-                />
-                <select
-                    value={categoria}
-                    onChange={(e) => {
-                        setCategoria(e.target.value);
-                        setPaginaItems(1); // Resetear a página 1 al cambiar categoría
-                    }}
-                    className="border rounded p-2"
-                >
-                    <option value="todas">Todas las categorías</option>
-                    <option value="bloc">Bloques (CEREC)</option>
-                    <option value="bur">Fresas</option>
-                    <option value="other">Otros</option>
-                </select>
-                <button onClick={cargar} className="border rounded p-2">
-                    Actualizar
-                </button>
-            </div>
-
-            <h2 className="text-lg font-semibold mt-7">Artículos</h2>
-
-            {cargando ? (
-                <div className="mt-3 text-gray-600">Cargando…</div>
-            ) : (
-                <>
-                    <div className="grid gap-2 mt-3">
-                        {itemsPaginados.map((it) => (
-                            <div key={it.id} className="border rounded p-3 flex justify-between gap-3">
-                                <div>
-                                    <div className="font-semibold">{it.name}</div>
-                                    <div className="text-sm text-gray-600">
-                                        Stock: <b>{it.current_qty}</b> {it.unit} ·{" "}
-                                        {it.category === "bloc"
-                                            ? "Bloque"
-                                            : it.category === "bur"
-                                                ? "Fresa"
-                                                : "Otro"}
-                                    </div>
-                                </div>
-
-                                <button
-                                    onClick={() => setModalItem(it)}
-                                    className="bg-black text-white px-3 py-2 rounded"
-                                >
-                                    Agregar / Retirar
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                    {totalPaginasItems > 1 && (
-                        <div className="flex items-center justify-center gap-2 mt-4">
-                            <button
-                                onClick={() => setPaginaItems(p => Math.max(1, p - 1))}
-                                disabled={paginaItems === 1}
-                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Anterior
-                            </button>
-                            <span className="text-sm text-gray-600">
-                                Página {paginaItems} de {totalPaginasItems} ({itemsFiltrados.length} artículos)
-                            </span>
-                            <button
-                                onClick={() => setPaginaItems(p => Math.min(totalPaginasItems, p + 1))}
-                                disabled={paginaItems === totalPaginasItems}
-                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Siguiente
-                            </button>
-                        </div>
-                    )}
-                </>
-            )}
-
-            <div className="flex items-center justify-between mt-10">
+            <div className="flex items-center justify-between mt-6">
                 <h2 className="text-lg font-semibold">Trabajos en proceso</h2>
                 <button
                     onClick={() => setMostrarModalTrabajo(true)}
@@ -751,6 +680,122 @@ export default function Inventario({ user, perfil }) {
                                 </div>
                             )}
                         </>
+                    )}
+                </>
+            )}
+
+            <h2 className="text-lg font-semibold mt-10">Artículos</h2>
+
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <input
+                    value={busqueda}
+                    onChange={(e) => {
+                        setBusqueda(e.target.value);
+                        setPaginaItems(1); // Resetear a página 1 al buscar
+                    }}
+                    placeholder="Buscar artículo…"
+                    className="border rounded p-2"
+                />
+                <select
+                    value={categoria}
+                    onChange={(e) => {
+                        setCategoria(e.target.value);
+                        setPaginaItems(1); // Resetear a página 1 al cambiar categoría
+                    }}
+                    className="border rounded p-2"
+                >
+                    <option value="todas">Todas las categorías</option>
+                    <option value="bloc">Bloques (CEREC)</option>
+                    <option value="bur">Fresas</option>
+                    <option value="other">Otros</option>
+                </select>
+                <button onClick={cargar} className="border rounded p-2">
+                    Actualizar
+                </button>
+            </div>
+
+            <div className="mt-3 flex gap-4 flex-wrap items-center">
+                <span className="text-sm font-medium">Tags:</span>
+                {TAGS_DISPONIBLES.map(tag => (
+                    <label key={tag} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={tagsFiltrados.includes(tag)}
+                            onChange={(e) => {
+                                if (e.target.checked) {
+                                    setTagsFiltrados([...tagsFiltrados, tag]);
+                                } else {
+                                    setTagsFiltrados(tagsFiltrados.filter(t => t !== tag));
+                                }
+                                setPaginaItems(1); // Resetear a página 1 al cambiar tags
+                            }}
+                            className="w-4 h-4"
+                        />
+                        <span className="text-sm">{tag}</span>
+                    </label>
+                ))}
+            </div>
+
+            {cargando ? (
+                <div className="mt-3 text-gray-600">Cargando…</div>
+            ) : (
+                <>
+                    <div className="grid gap-2 mt-3">
+                        {itemsPaginados.map((it) => (
+                            <div key={it.id} className="border rounded p-3 flex justify-between gap-3">
+                                <div className="flex-1">
+                                    <div className="font-semibold">{it.name}</div>
+                                    <div className="text-sm text-gray-600">
+                                        Stock: <b>{it.current_qty}</b> {it.unit} ·{" "}
+                                        {it.category === "bloc"
+                                            ? "Bloque"
+                                            : it.category === "bur"
+                                                ? "Fresa"
+                                                : "Otro"}
+                                    </div>
+                                    {it.tags && it.tags.length > 0 && (
+                                        <div className="flex gap-1 mt-1 flex-wrap">
+                                            {it.tags.map(tag => (
+                                                <span 
+                                                    key={tag} 
+                                                    className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded"
+                                                >
+                                                    {tag}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <button
+                                    onClick={() => setModalItem(it)}
+                                    className="bg-black text-white px-3 py-2 rounded"
+                                >
+                                    Agregar / Retirar
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                    {totalPaginasItems > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-4">
+                            <button
+                                onClick={() => setPaginaItems(p => Math.max(1, p - 1))}
+                                disabled={paginaItems === 1}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Anterior
+                            </button>
+                            <span className="text-sm text-gray-600">
+                                Página {paginaItems} de {totalPaginasItems} ({itemsFiltrados.length} artículos)
+                            </span>
+                            <button
+                                onClick={() => setPaginaItems(p => Math.min(totalPaginasItems, p + 1))}
+                                disabled={paginaItems === totalPaginasItems}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Siguiente
+                            </button>
+                        </div>
                     )}
                 </>
             )}
