@@ -17,6 +17,8 @@ export default function NuevoTrabajoModal({ items, onClose, onConfirm }) {
     const [tipoTratamiento, setTipoTratamiento] = useState("");
     const [nombreTratamiento, setNombreTratamiento] = useState("");
     const [nombrePaciente, setNombrePaciente] = useState("");
+    const [pieza, setPieza] = useState("");
+    const [doctor, setDoctor] = useState("");
     const [fechaEspera, setFechaEspera] = useState("");
     const [materialesSeleccionados, setMaterialesSeleccionados] = useState([]);
     const [busquedaMateriales, setBusquedaMateriales] = useState("");
@@ -160,11 +162,22 @@ export default function NuevoTrabajoModal({ items, onClose, onConfirm }) {
             }
         }
 
+        // Convertir fecha a formato local (sin conversión UTC) para evitar problemas de timezone
+        // Si la fecha es "2024-01-21", la guardamos como "2024-01-21T00:00:00" en hora local
+        let fechaEsperaFormateada = null;
+        if (fechaEspera) {
+            // Crear fecha en hora local (medianoche local)
+            const fechaLocal = new Date(fechaEspera + "T00:00:00");
+            fechaEsperaFormateada = fechaLocal.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+        }
+
         onConfirm({
             treatment_type: tipoTratamiento,
             treatment_name: requiereNombre ? nombreTratamiento.trim() : null,
             patient_name: nombrePaciente.trim(),
-            fecha_espera: fechaEspera,
+            pieza: pieza.trim() || null,
+            doctor: doctor.trim() || null,
+            fecha_espera: fechaEsperaFormateada,
             materials: materialesSeleccionados
         });
     }
@@ -219,6 +232,28 @@ export default function NuevoTrabajoModal({ items, onClose, onConfirm }) {
                             value={nombrePaciente}
                             onChange={(e) => setNombrePaciente(e.target.value)}
                             placeholder="Nombre completo del paciente"
+                            className="border rounded p-2 w-full mt-1"
+                        />
+                    </label>
+
+                    <label className="text-sm font-medium">
+                        Pieza
+                        <input
+                            type="text"
+                            value={pieza}
+                            onChange={(e) => setPieza(e.target.value)}
+                            placeholder="Ej: 21, 32, etc."
+                            className="border rounded p-2 w-full mt-1"
+                        />
+                    </label>
+
+                    <label className="text-sm font-medium">
+                        Doctor
+                        <input
+                            type="text"
+                            value={doctor}
+                            onChange={(e) => setDoctor(e.target.value)}
+                            placeholder="Nombre del doctor"
                             className="border rounded p-2 w-full mt-1"
                         />
                     </label>

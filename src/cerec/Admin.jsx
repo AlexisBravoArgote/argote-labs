@@ -1,8 +1,9 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../supabase";
 import { Link } from "react-router-dom";
 
 const TAGS_DISPONIBLES = ["E.MAX", "RECICLADO", "SIRONA"];
+const ITEMS_POR_PAGINA = 4;
 
 export default function Admin({ user }) {
     const [items, setItems] = useState([]);
@@ -20,10 +21,21 @@ export default function Admin({ user }) {
     const [unitEditando, setUnitEditando] = useState("pzas");
     const [tagsEditando, setTagsEditando] = useState([]);
 
+    // Estados para búsqueda y paginación de artículos
+    const [busquedaItems, setBusquedaItems] = useState("");
+    const [paginaItems, setPaginaItems] = useState(1);
+
     // Estados para historial de movimientos
     const [movimientos, setMovimientos] = useState([]);
     const [cargandoMovimientos, setCargandoMovimientos] = useState(false);
     const [busquedaMovimientos, setBusquedaMovimientos] = useState("");
+    const [paginaMovimientos, setPaginaMovimientos] = useState(1);
+
+    // Estados para historial de trabajos
+    const [trabajos, setTrabajos] = useState([]);
+    const [cargandoTrabajos, setCargandoTrabajos] = useState(false);
+    const [busquedaTrabajos, setBusquedaTrabajos] = useState("");
+    const [paginaTrabajos, setPaginaTrabajos] = useState(1);
 
     async function cargarItems() {
         setError("");
@@ -36,9 +48,85 @@ export default function Admin({ user }) {
         setItems(data ?? []);
     }
 
+    // Función para obtener nombre de tratamiento
+    function obtenerNombreTratamiento(trabajo) {
+        if (trabajo.treatment_name) return trabajo.treatment_name;
+        
+        const nombres = {
+            "corona_implante": "Corona sobre implante",
+            "guia_quirurgica": "Guía quirúrgica",
+            "guardas": "Guardas",
+            "modelo_ortodoncia": "Modelo de ortodoncia",
+            "diseno_sonrisa": "Diseño de sonrisa",
+            "rehabilitacion_completa": "Rehabilitación completa",
+            "coronas": "Coronas",
+            "carillas": "Carillas",
+            "incrustaciones": "Incrustaciones",
+            "otra": "Otro"
+        };
+        
+        return nombres[trabajo.treatment_type] || trabajo.treatment_type;
+    }
+
+    // Filtrar y paginar artículos
+    const itemsFiltrados = useMemo(() => {
+        const q = busquedaItems.trim().toLowerCase();
+        return items.filter(it => !q || it.name.toLowerCase().includes(q));
+    }, [items, busquedaItems]);
+
+    const itemsPaginados = useMemo(() => {
+        const inicio = (paginaItems - 1) * ITEMS_POR_PAGINA;
+        const fin = inicio + ITEMS_POR_PAGINA;
+        return itemsFiltrados.slice(inicio, fin);
+    }, [itemsFiltrados, paginaItems]);
+
+    const totalPaginasItems = Math.ceil(itemsFiltrados.length / ITEMS_POR_PAGINA);
+
+    // Filtrar y paginar movimientos
+    const movimientosFiltrados = useMemo(() => {
+        const q = busquedaMovimientos.trim().toLowerCase();
+        if (!q) return movimientos;
+        return movimientos.filter(m => 
+            m.item_name?.toLowerCase().includes(q) ||
+            m.user_name?.toLowerCase().includes(q) ||
+            m.reason?.toLowerCase().includes(q) ||
+            m.delta?.toString().includes(q)
+        );
+    }, [movimientos, busquedaMovimientos]);
+
+    const movimientosPaginados = useMemo(() => {
+        const inicio = (paginaMovimientos - 1) * ITEMS_POR_PAGINA;
+        const fin = inicio + ITEMS_POR_PAGINA;
+        return movimientosFiltrados.slice(inicio, fin);
+    }, [movimientosFiltrados, paginaMovimientos]);
+
+    const totalPaginasMovimientos = Math.ceil(movimientosFiltrados.length / ITEMS_POR_PAGINA);
+
+    // Filtrar y paginar trabajos
+    const trabajosFiltrados = useMemo(() => {
+        const q = busquedaTrabajos.trim().toLowerCase();
+        if (!q) return trabajos;
+        return trabajos.filter(t => 
+            t.patient_name?.toLowerCase().includes(q) ||
+            t.treatment_name?.toLowerCase().includes(q) ||
+            obtenerNombreTratamiento(t).toLowerCase().includes(q) ||
+            t.created_by_name?.toLowerCase().includes(q) ||
+            t.completed_by_name?.toLowerCase().includes(q)
+        );
+    }, [trabajos, busquedaTrabajos]);
+
+    const trabajosPaginados = useMemo(() => {
+        const inicio = (paginaTrabajos - 1) * ITEMS_POR_PAGINA;
+        const fin = inicio + ITEMS_POR_PAGINA;
+        return trabajosFiltrados.slice(inicio, fin);
+    }, [trabajosFiltrados, paginaTrabajos]);
+
+    const totalPaginasTrabajos = Math.ceil(trabajosFiltrados.length / ITEMS_POR_PAGINA);
+
     useEffect(() => {
         cargarItems();
         cargarMovimientos();
+        cargarTrabajos();
     }, []);
 
     async function cargarMovimientos() {
@@ -100,6 +188,54 @@ export default function Admin({ user }) {
         }
     }
 
+    async function cargarTrabajos() {
+        setCargandoTrabajos(true);
+        setError("");
+        
+        try {
+            const { data: historial, error: errHistorial } = await supabase
+                .from("jobs")
+                .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera")
+                .order("created_at", { ascending: false })
+                .limit(200);
+
+            if (errHistorial) {
+                console.error("Error cargando historial de trabajos:", errHistorial);
+                setError(`Error al cargar trabajos: ${errHistorial.message}`);
+                setCargandoTrabajos(false);
+                return;
+            }
+
+            const trabajosBase = historial || [];
+            if (trabajosBase.length === 0) {
+                setTrabajos([]);
+                setCargandoTrabajos(false);
+                return;
+            }
+
+            const userIds = [...new Set(trabajosBase.flatMap(t => [t.created_by, t.completed_by]).filter(Boolean))];
+            const { data: perfiles } = await supabase
+                .from("profiles")
+                .select("id, full_name")
+                .in("id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]);
+
+            const userMap = new Map((perfiles || []).map(p => [p.id, p.full_name || p.id]));
+
+            setTrabajos(
+                trabajosBase.map(t => ({
+                    ...t,
+                    created_by_name: userMap.get(t.created_by) || t.created_by,
+                    completed_by_name: t.completed_by ? (userMap.get(t.completed_by) || t.completed_by) : null
+                }))
+            );
+        } catch (err) {
+            console.error("Error inesperado al cargar trabajos:", err);
+            setError(`Error inesperado al cargar trabajos: ${err.message}`);
+        } finally {
+            setCargandoTrabajos(false);
+        }
+    }
+
     async function borrarMovimiento(movimientoId) {
         if (!confirm("¿Seguro que quieres borrar este movimiento del historial?\n\nNota: Esto solo eliminará el registro del historial. El stock del artículo NO se modificará.")) return;
 
@@ -110,11 +246,30 @@ export default function Admin({ user }) {
             .eq("id", movimientoId);
 
         if (error) {
+            console.error("Error al borrar movimiento:", error);
             setError(`Error al borrar movimiento: ${error.message}`);
             return;
         }
 
         await cargarMovimientos();
+    }
+
+    async function borrarTrabajo(trabajoId) {
+        if (!confirm("¿Seguro que quieres borrar este trabajo del historial?\n\nNota: Esto eliminará el trabajo y sus materiales asociados, pero NO afectará el stock actual.")) return;
+
+        setError("");
+        const { error } = await supabase
+            .from("jobs")
+            .delete()
+            .eq("id", trabajoId);
+
+        if (error) {
+            console.error("Error al borrar trabajo:", error);
+            setError(`Error al borrar trabajo: ${error.message}`);
+            return;
+        }
+
+        await cargarTrabajos();
     }
 
     function toggleTag(tag) {
@@ -274,8 +429,26 @@ export default function Admin({ user }) {
             </div>
 
             <h2 className="font-semibold mt-8">Artículos</h2>
-            <div className="grid gap-2 mt-3">
-                {items.map((it) => (
+            
+            <div className="mt-3 mb-3">
+                <input
+                    type="text"
+                    value={busquedaItems}
+                    onChange={(e) => {
+                        setBusquedaItems(e.target.value);
+                        setPaginaItems(1);
+                    }}
+                    placeholder="Buscar artículos..."
+                    className="border rounded p-2 w-full"
+                />
+            </div>
+
+            {items.length === 0 ? (
+                <div className="text-gray-500 text-sm mt-3">No hay artículos.</div>
+            ) : (
+                <>
+                    <div className="grid gap-2 mt-3">
+                        {itemsPaginados.map((it) => (
                     <div key={it.id} className="border rounded p-3">
                         {itemEditando === it.id ? (
                             <div className="space-y-3">
@@ -382,8 +555,29 @@ export default function Admin({ user }) {
                             </div>
                         )}
                     </div>
-                ))}
-            </div>
+                    {totalPaginasItems > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-4">
+                            <button
+                                onClick={() => setPaginaItems(p => Math.max(1, p - 1))}
+                                disabled={paginaItems === 1}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Anterior
+                            </button>
+                            <span className="text-sm text-gray-600">
+                                Página {paginaItems} de {totalPaginasItems} ({itemsFiltrados.length} artículos)
+                            </span>
+                            <button
+                                onClick={() => setPaginaItems(p => Math.min(totalPaginasItems, p + 1))}
+                                disabled={paginaItems === totalPaginasItems}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Siguiente
+                            </button>
+                        </div>
+                    )}
+                </>
+            )}
 
             <h2 className="font-semibold mt-10">Historial de movimientos</h2>
             <p className="text-sm text-gray-600 mt-1 mb-3">
@@ -394,7 +588,10 @@ export default function Admin({ user }) {
                 <input
                     type="text"
                     value={busquedaMovimientos}
-                    onChange={(e) => setBusquedaMovimientos(e.target.value)}
+                    onChange={(e) => {
+                        setBusquedaMovimientos(e.target.value);
+                        setPaginaMovimientos(1);
+                    }}
                     placeholder="Buscar en historial..."
                     className="border rounded p-2 w-full"
                 />
@@ -405,19 +602,9 @@ export default function Admin({ user }) {
             ) : movimientos.length === 0 ? (
                 <div className="text-gray-500 text-sm mt-3">No hay movimientos en el historial.</div>
             ) : (
-                <div className="grid gap-2 mt-3">
-                    {movimientos
-                        .filter(m => {
-                            const q = busquedaMovimientos.trim().toLowerCase();
-                            if (!q) return true;
-                            return (
-                                m.item_name?.toLowerCase().includes(q) ||
-                                m.user_name?.toLowerCase().includes(q) ||
-                                m.reason?.toLowerCase().includes(q) ||
-                                m.delta?.toString().includes(q)
-                            );
-                        })
-                        .map((m) => (
+                <>
+                    <div className="grid gap-2 mt-3">
+                        {movimientosPaginados.map((m) => (
                             <div key={m.id} className="border rounded p-3 flex justify-between items-center gap-3">
                                 <div className="flex-1">
                                     <div className="font-semibold">
@@ -436,7 +623,121 @@ export default function Admin({ user }) {
                                 </button>
                             </div>
                         ))}
-                </div>
+                    </div>
+                    {totalPaginasMovimientos > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-4">
+                            <button
+                                onClick={() => setPaginaMovimientos(p => Math.max(1, p - 1))}
+                                disabled={paginaMovimientos === 1}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Anterior
+                            </button>
+                            <span className="text-sm text-gray-600">
+                                Página {paginaMovimientos} de {totalPaginasMovimientos} ({movimientosFiltrados.length} movimientos)
+                            </span>
+                            <button
+                                onClick={() => setPaginaMovimientos(p => Math.min(totalPaginasMovimientos, p + 1))}
+                                disabled={paginaMovimientos === totalPaginasMovimientos}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Siguiente
+                            </button>
+                        </div>
+                    )}
+                </>
+            )}
+
+            <h2 className="font-semibold mt-10">Historial de trabajos</h2>
+            <p className="text-sm text-gray-600 mt-1 mb-3">
+                Puedes borrar trabajos del historial para mantenerlo limpio. Esto eliminará el trabajo y sus materiales asociados, pero NO afectará el stock actual.
+            </p>
+
+            <div className="mt-3 mb-3">
+                <input
+                    type="text"
+                    value={busquedaTrabajos}
+                    onChange={(e) => {
+                        setBusquedaTrabajos(e.target.value);
+                        setPaginaTrabajos(1);
+                    }}
+                    placeholder="Buscar en historial de trabajos..."
+                    className="border rounded p-2 w-full"
+                />
+            </div>
+
+            {cargandoTrabajos ? (
+                <div className="text-gray-600 mt-3">Cargando trabajos…</div>
+            ) : trabajos.length === 0 ? (
+                <div className="text-gray-500 text-sm mt-3">No hay trabajos en el historial.</div>
+            ) : (
+                <>
+                    <div className="grid gap-2 mt-3">
+                        {trabajosPaginados.map((trabajo) => (
+                            <div key={trabajo.id} className="border rounded p-3 flex justify-between items-center gap-3">
+                                <div className="flex-1">
+                                    <div className="font-semibold">
+                                        {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
+                                        {trabajo.pieza && ` (Pieza: ${trabajo.pieza})`}
+                                    </div>
+                                    {trabajo.doctor && (
+                                        <div className="text-sm text-gray-600 mt-1">
+                                            Doctor: {trabajo.doctor}
+                                        </div>
+                                    )}
+                                    <div className="text-sm text-gray-600">
+                                        {trabajo.status === "completed" ? (
+                                            <>
+                                                <span className="text-green-600 font-medium">Finalizado</span> ·{" "}
+                                                Finalizado por {trabajo.completed_by_name} ·{" "}
+                                                {new Date(trabajo.completed_at).toLocaleString("es-MX")} ·{" "}
+                                                Iniciado: {new Date(trabajo.created_at).toLocaleString("es-MX")} por {trabajo.created_by_name}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="text-orange-600 font-medium">Pendiente</span> ·{" "}
+                                                Iniciado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
+                                            </>
+                                        )}
+                                        {trabajo.fecha_espera && (
+                                            <> · <span className="text-blue-600">Esperado: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}</span></>
+                                        )}
+                                        {trabajo.etapa && (
+                                            <> · <span className="text-purple-600">Etapa: {trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}</span></>
+                                        )}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => borrarTrabajo(trabajo.id)}
+                                    className="border px-3 py-2 rounded text-red-600 hover:bg-red-50 text-sm whitespace-nowrap"
+                                >
+                                    Borrar
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                    {totalPaginasTrabajos > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-4">
+                            <button
+                                onClick={() => setPaginaTrabajos(p => Math.max(1, p - 1))}
+                                disabled={paginaTrabajos === 1}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Anterior
+                            </button>
+                            <span className="text-sm text-gray-600">
+                                Página {paginaTrabajos} de {totalPaginasTrabajos} ({trabajosFiltrados.length} trabajos)
+                            </span>
+                            <button
+                                onClick={() => setPaginaTrabajos(p => Math.min(totalPaginasTrabajos, p + 1))}
+                                disabled={paginaTrabajos === totalPaginasTrabajos}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Siguiente
+                            </button>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

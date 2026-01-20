@@ -183,7 +183,7 @@ export default function Inventario({ user, perfil }) {
         // Cargar trabajos en proceso
         const { data: pendientes, error: errPendientes } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, created_by, created_at, etapa, fecha_espera")
+            .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, created_by, created_at, etapa, fecha_espera")
             .eq("status", "pending")
             .order("created_at", { ascending: false });
 
@@ -210,7 +210,7 @@ export default function Inventario({ user, perfil }) {
         // Cargar historial de trabajos
         const { data: historial, error: errHistorial } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera")
+            .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera")
             .order("created_at", { ascending: false })
             .limit(50);
 
@@ -373,6 +373,8 @@ export default function Inventario({ user, perfil }) {
                     treatment_type: datosTrabajo.treatment_type,
                     treatment_name: datosTrabajo.treatment_name,
                     patient_name: datosTrabajo.patient_name,
+                    pieza: datosTrabajo.pieza,
+                    doctor: datosTrabajo.doctor,
                     status: "pending",
                     etapa: "diseño",
                     fecha_espera: datosTrabajo.fecha_espera,
@@ -569,13 +571,19 @@ export default function Inventario({ user, perfil }) {
                                 <div className="flex-1">
                                     <div className="font-semibold">
                                         {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
+                                        {trabajo.pieza && ` (Pieza: ${trabajo.pieza})`}
                                     </div>
+                                    {trabajo.doctor && (
+                                        <div className="text-sm text-gray-600 mt-1">
+                                            Doctor: {trabajo.doctor}
+                                        </div>
+                                    )}
                                     <div className="text-sm text-gray-600">
                                         Iniciado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
                                     </div>
                                     {trabajo.fecha_espera && (
                                         <div className="text-sm text-blue-600 mt-1">
-                                            Fecha esperada: {new Date(trabajo.fecha_espera).toLocaleDateString("es-MX")}
+                                            Fecha esperada: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}
                                         </div>
                                     )}
                                     <div className="text-sm font-medium mt-1">
@@ -635,21 +643,29 @@ export default function Inventario({ user, perfil }) {
                         <div key={trabajo.id} className="border rounded p-3">
                             <div className="font-semibold">
                                 {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
+                                {trabajo.pieza && ` (Pieza: ${trabajo.pieza})`}
                             </div>
+                            {trabajo.doctor && (
+                                <div className="text-sm text-gray-600 mt-1">
+                                    Doctor: {trabajo.doctor}
+                                </div>
+                            )}
                             <div className="text-sm text-gray-600">
                                 {trabajo.status === "completed" ? (
                                     <>
                                         <span className="text-green-600 font-medium">Finalizado</span> ·{" "}
-                                        {new Date(trabajo.completed_at).toLocaleString("es-MX")} · {trabajo.completed_by_name}
+                                        Finalizado por {trabajo.completed_by_name} ·{" "}
+                                        {new Date(trabajo.completed_at).toLocaleString("es-MX")} ·{" "}
+                                        Iniciado: {new Date(trabajo.created_at).toLocaleString("es-MX")} por {trabajo.created_by_name}
                                     </>
                                 ) : (
                                     <>
                                         <span className="text-orange-600 font-medium">Pendiente</span> ·{" "}
-                                        {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
+                                        Iniciado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
                                     </>
                                 )}
                                 {trabajo.fecha_espera && (
-                                    <> · <span className="text-blue-600">Esperado: {new Date(trabajo.fecha_espera).toLocaleDateString("es-MX")}</span></>
+                                    <> · <span className="text-blue-600">Esperado: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}</span></>
                                 )}
                                 {trabajo.etapa && (
                                     <> · <span className="text-purple-600">Etapa: {trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}</span></>
