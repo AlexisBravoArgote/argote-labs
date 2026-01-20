@@ -449,111 +449,113 @@ export default function Admin({ user }) {
                 <>
                     <div className="grid gap-2 mt-3">
                         {itemsPaginados.map((it) => (
-                    <div key={it.id} className="border rounded p-3">
-                        {itemEditando === it.id ? (
-                            <div className="space-y-3">
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    <label className="text-sm">
-                                        Nombre
-                                        <input 
-                                            className="border rounded p-2 w-full mt-1" 
-                                            value={nameEditando} 
-                                            onChange={(e) => setNameEditando(e.target.value)} 
-                                        />
-                                    </label>
-
-                                    <label className="text-sm">
-                                        Categoría
-                                        <select 
-                                            className="border rounded p-2 w-full mt-1" 
-                                            value={categoryEditando} 
-                                            onChange={(e) => setCategoryEditando(e.target.value)}
-                                        >
-                                            <option value="bloc">Bloques (CEREC)</option>
-                                            <option value="bur">Fresas</option>
-                                            <option value="other">Otros</option>
-                                        </select>
-                                    </label>
-
-                                    <label className="text-sm">
-                                        Unidad
-                                        <input 
-                                            className="border rounded p-2 w-full mt-1" 
-                                            value={unitEditando} 
-                                            onChange={(e) => setUnitEditando(e.target.value)} 
-                                        />
-                                    </label>
-                                </div>
-
-                                <div>
-                                    <label className="text-sm font-medium block mb-2">Tags</label>
-                                    <div className="flex gap-4 flex-wrap">
-                                        {TAGS_DISPONIBLES.map(tag => (
-                                            <label key={tag} className="flex items-center gap-2 cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={tagsEditando.includes(tag)}
-                                                    onChange={() => toggleTagEditando(tag)}
-                                                    className="w-4 h-4"
+                            <div key={it.id} className="border rounded p-3">
+                                {itemEditando === it.id ? (
+                                    <div className="space-y-3">
+                                        <div className="grid gap-3 sm:grid-cols-2">
+                                            <label className="text-sm">
+                                                Nombre
+                                                <input 
+                                                    className="border rounded p-2 w-full mt-1" 
+                                                    value={nameEditando} 
+                                                    onChange={(e) => setNameEditando(e.target.value)} 
                                                 />
-                                                <span className="text-sm">{tag}</span>
                                             </label>
-                                        ))}
-                                    </div>
-                                </div>
 
-                                <div className="flex gap-2">
-                                    <button 
-                                        onClick={actualizar} 
-                                        className="bg-green-600 text-white px-4 py-2 rounded"
-                                    >
-                                        Guardar
-                                    </button>
-                                    <button 
-                                        onClick={cancelarEdicion} 
-                                        className="border px-4 py-2 rounded"
-                                    >
-                                        Cancelar
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex justify-between gap-3">
-                                <div className="flex-1">
-                                    <div className="font-semibold">{it.name}</div>
-                                    <div className="text-sm text-gray-600">
-                                        Stock: <b>{it.current_qty}</b> {it.unit} · {it.category}
-                                    </div>
-                                    {it.tags && it.tags.length > 0 && (
-                                        <div className="flex gap-1 mt-1 flex-wrap">
-                                            {it.tags.map(tag => (
-                                                <span 
-                                                    key={tag} 
-                                                    className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded"
+                                            <label className="text-sm">
+                                                Categoría
+                                                <select 
+                                                    className="border rounded p-2 w-full mt-1" 
+                                                    value={categoryEditando} 
+                                                    onChange={(e) => setCategoryEditando(e.target.value)}
                                                 >
-                                                    {tag}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
+                                                    <option value="bloc">Bloques (CEREC)</option>
+                                                    <option value="bur">Fresas</option>
+                                                    <option value="other">Otros</option>
+                                                </select>
+                                            </label>
 
-                                <div className="flex gap-2">
-                                    <button 
-                                        onClick={() => iniciarEdicion(it)} 
-                                        className="border px-3 py-2 rounded"
-                                    >
-                                        Editar
-                                    </button>
-                                    <button 
-                                        onClick={() => borrar(it.id)} 
-                                        className="border px-3 py-2 rounded text-red-600 hover:bg-red-50"
-                                    >
-                                        Borrar
-                                    </button>
-                                </div>
+                                            <label className="text-sm">
+                                                Unidad
+                                                <input 
+                                                    className="border rounded p-2 w-full mt-1" 
+                                                    value={unitEditando} 
+                                                    onChange={(e) => setUnitEditando(e.target.value)} 
+                                                />
+                                            </label>
+                                        </div>
+
+                                        <div>
+                                            <label className="text-sm font-medium block mb-2">Tags</label>
+                                            <div className="flex gap-4 flex-wrap">
+                                                {TAGS_DISPONIBLES.map(tag => (
+                                                    <label key={tag} className="flex items-center gap-2 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={tagsEditando.includes(tag)}
+                                                            onChange={() => toggleTagEditando(tag)}
+                                                            className="w-4 h-4"
+                                                        />
+                                                        <span className="text-sm">{tag}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={actualizar} 
+                                                className="bg-green-600 text-white px-4 py-2 rounded"
+                                            >
+                                                Guardar
+                                            </button>
+                                            <button 
+                                                onClick={cancelarEdicion} 
+                                                className="border px-4 py-2 rounded"
+                                            >
+                                                Cancelar
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex justify-between gap-3">
+                                        <div className="flex-1">
+                                            <div className="font-semibold">{it.name}</div>
+                                            <div className="text-sm text-gray-600">
+                                                Stock: <b>{it.current_qty}</b> {it.unit} · {it.category}
+                                            </div>
+                                            {it.tags && it.tags.length > 0 && (
+                                                <div className="flex gap-1 mt-1 flex-wrap">
+                                                    {it.tags.map(tag => (
+                                                        <span 
+                                                            key={tag} 
+                                                            className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded"
+                                                        >
+                                                            {tag}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={() => iniciarEdicion(it)} 
+                                                className="border px-3 py-2 rounded"
+                                            >
+                                                Editar
+                                            </button>
+                                            <button 
+                                                onClick={() => borrar(it.id)} 
+                                                className="border px-3 py-2 rounded text-red-600 hover:bg-red-50"
+                                            >
+                                                Borrar
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        )}
+                        ))}
                     </div>
                     {totalPaginasItems > 1 && (
                         <div className="flex items-center justify-center gap-2 mt-4">
