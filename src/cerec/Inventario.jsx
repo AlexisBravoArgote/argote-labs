@@ -50,6 +50,8 @@ export default function Inventario({ user, perfil }) {
     const [historialTrabajos, setHistorialTrabajos] = useState([]);
     const [cargandoTrabajos, setCargandoTrabajos] = useState(false);
     const [reportes, setReportes] = useState([]);
+    const [cargandoReportes, setCargandoReportes] = useState(false);
+    const [paginaReportes, setPaginaReportes] = useState(1);
 
     // Función para obtener nombre de tratamiento (debe estar antes de los useMemo)
     function obtenerNombreTratamiento(trabajo) {
@@ -521,11 +523,81 @@ export default function Inventario({ user, perfil }) {
             setHasMoreMovs(hasMore);
 
             await cargarTrabajos();
+            await cargarReportes();
         } catch (err) {
             console.error("Error inesperado al cargar:", err);
             setError(`Error inesperado: ${err.message}`);
         } finally {
             setCargando(false);
+        }
+    }
+
+    async function cargarReportes() {
+        setCargandoReportes(true);
+        try {
+            const { data: reportesData, error: errReportes } = await supabase
+                .from("job_reports")
+                .select("id, job_id, report_type, description, reported_by, created_at")
+                .order("created_at", { ascending: false })
+                .limit(50);
+
+            if (errReportes) {
+                // Si la tabla no existe, simplemente no cargar reportes
+                if (errReportes.message.includes("does not exist") || errReportes.message.includes("no existe")) {
+                    console.log("Tabla job_reports no existe aún. Ejecuta el script SQL para crearla.");
+                    setReportes([]);
+                    setCargandoReportes(false);
+                    return;
+                }
+                console.error("Error al cargar reportes:", errReportes);
+                setReportes([]);
+                setCargandoReportes(false);
+                return;
+            }
+
+            const reportesBase = reportesData || [];
+            if (reportesBase.length === 0) {
+                setReportes([]);
+                setCargandoReportes(false);
+                return;
+            }
+
+            // Obtener información de trabajos y usuarios
+            const jobIds = [...new Set(reportesBase.map(r => r.job_id))];
+            const userIds = [...new Set(reportesBase.map(r => r.reported_by))];
+
+            const [{ data: trabajosData }, { data: perfiles }] = await Promise.all([
+                supabase
+                    .from("jobs")
+                    .select("id, treatment_type, treatment_name, patient_name")
+                    .in("id", jobIds.length ? jobIds : ["00000000-0000-0000-0000-000000000000"]),
+                supabase
+                    .from("profiles")
+                    .select("id, full_name")
+                    .in("id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"])
+            ]);
+
+            const trabajoMap = new Map((trabajosData || []).map(t => [t.id, t]));
+            const userMap = new Map((perfiles || []).map(p => [p.id, p.full_name || p.id]));
+
+            setReportes(
+                reportesBase.map(r => {
+                    const trabajo = trabajoMap.get(r.job_id);
+                    return {
+                        ...r,
+                        job_info: trabajo ? {
+                            patient_name: trabajo.patient_name,
+                            treatment_name: obtenerNombreTratamiento(trabajo)
+                        } : null,
+                        reported_by_name: userMap.get(r.reported_by) || r.reported_by
+                    };
+                })
+            );
+        } catch (err) {
+            console.error("Error inesperado al cargar reportes:", err);
+            setReportes([]);
+        } finally {
+            setCargandoReportes(false);
         }
     }
 
@@ -1005,6 +1077,14 @@ export default function Inventario({ user, perfil }) {
                                         <div className="text-sm font-medium mt-1">
                                             Etapa: <span className="text-purple-600">{trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}</span>
                                         </div>
+                                        <div className="mt-2">
+                                            <button
+                                                onClick={() => abrirModalReporte(trabajo)}
+                                                className="text-orange-600 hover:text-orange-700 text-sm underline"
+                                            >
+                                                Reportar
+                                            </button>
+                                        </div>
                                         {trabajo.materiales && trabajo.materiales.length > 0 && (
                                             <div className="text-sm mt-2">
                                                 <span className="font-medium">Materiales utilizados:</span>{" "}
@@ -1034,12 +1114,6 @@ export default function Inventario({ user, perfil }) {
                                         )}
                                     </div>
                                     <div className="flex gap-2">
-                                        <button
-                                            onClick={() => abrirModalReporte(trabajo)}
-                                            className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 text-sm"
-                                        >
-                                            Reportar
-                                        </button>
                                         {trabajo.treatment_type === "corona_implante" && !trabajo.tieneAditamento && (
                                             <button
                                                 onClick={() => abrirModalAditamento(trabajo)}
@@ -1353,6 +1427,14 @@ export default function Inventario({ user, perfil }) {
                                     ))}
                                 </div>
                             )}
+                            <div className="mt-2">
+                                <button
+                                    onClick={() => abrirModalReporte(trabajo)}
+                                    className="text-orange-600 hover:text-orange-700 text-sm underline"
+                                >
+                                    Reportar
+                                </button>
+                            </div>
                         </div>
                     ))}
                             </div>
@@ -1605,6 +1687,67 @@ export default function Inventario({ user, perfil }) {
                     }}
                     onConfirm={confirmarReporte}
                 />
+            )}
+
+            <h2 className="text-lg font-semibold mt-10">Historial de errores y fallas</h2>
+            <p className="text-sm text-gray-600 mt-1 mb-3">
+                Reportes de errores y fallas en los trabajos.
+            </p>
+
+            {cargandoReportes ? (
+                <div className="text-gray-600 mt-3">Cargando reportes…</div>
+            ) : reportes.length === 0 ? (
+                <div className="text-gray-500 text-sm mt-3">No hay reportes.</div>
+            ) : (
+                <>
+                    <div className="grid gap-2 mt-3">
+                        {reportes.slice((paginaReportes - 1) * itemsPorPagina, paginaReportes * itemsPorPagina).map((reporte) => (
+                            <div key={reporte.id} className="border rounded p-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className={`text-xs px-2 py-1 rounded font-medium ${
+                                        reporte.report_type === "error" 
+                                            ? "bg-red-100 text-red-800" 
+                                            : "bg-red-100 text-red-800"
+                                    }`}>
+                                        {reporte.report_type === "error" ? "ERROR" : "FALLA"}
+                                    </span>
+                                    {reporte.job_info && (
+                                        <span className="text-sm font-medium">
+                                            {reporte.job_info.treatment_name} - {reporte.job_info.patient_name}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="text-sm text-gray-700 mb-2">
+                                    {reporte.description}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                    Reportado por {reporte.reported_by_name} · {new Date(reporte.created_at).toLocaleString("es-MX")}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {Math.ceil(reportes.length / itemsPorPagina) > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-4">
+                            <button
+                                onClick={() => setPaginaReportes(p => Math.max(1, p - 1))}
+                                disabled={paginaReportes === 1}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Anterior
+                            </button>
+                            <span className="text-sm text-gray-600">
+                                Página {paginaReportes} de {Math.ceil(reportes.length / itemsPorPagina)} ({reportes.length} reportes)
+                            </span>
+                            <button
+                                onClick={() => setPaginaReportes(p => Math.min(Math.ceil(reportes.length / itemsPorPagina), p + 1))}
+                                disabled={paginaReportes === Math.ceil(reportes.length / itemsPorPagina)}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Siguiente
+                            </button>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );
