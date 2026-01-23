@@ -17,8 +17,19 @@ export default function Inventario({ user, perfil }) {
     const [tagsFiltrados, setTagsFiltrados] = useState([]);
     const [busquedaHistorial, setBusquedaHistorial] = useState("");
     const [busquedaTrabajos, setBusquedaTrabajos] = useState("");
+    const [filtroTrabajosPendientes, setFiltroTrabajosPendientes] = useState("todos"); // "todos", "exocad", "cerec", "otro"
+    
+    // Filtros para historial de trabajos
+    const [mostrarFiltrosHistorial, setMostrarFiltrosHistorial] = useState(false);
+    const [filtroTagHistorial, setFiltroTagHistorial] = useState(""); // "exocad", "cerec", ""
+    const [filtroFinalizadoPor, setFiltroFinalizadoPor] = useState(""); // nombre del usuario
+    const [filtroDoctorHistorial, setFiltroDoctorHistorial] = useState(""); // nombre del doctor
+    const [filtroFechaDesde, setFiltroFechaDesde] = useState("");
+    const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
+    const [filtroTratamientoHistorial, setFiltroTratamientoHistorial] = useState(""); // tipo de tratamiento
 
     const TAGS_DISPONIBLES = ["E.MAX", "RECICLADO", "SIRONA"];
+    const DOCTORES = ["Alvaro", "Andrea", "Angulo", "Claudia", "Enrique", "Fierro", "Gustavo", "Ivan", "Linda", "Nathali", "Otro"];
 
     // Paginación
     const [paginaItems, setPaginaItems] = useState(1);
@@ -55,6 +66,24 @@ export default function Inventario({ user, perfil }) {
         };
         
         return nombres[trabajo.treatment_type] || trabajo.treatment_type;
+    }
+
+    // Función para obtener el tag del trabajo (EXOCAD, CEREC, OTRO)
+    function obtenerTagTrabajo(trabajo) {
+        const tipo = trabajo.treatment_type;
+        
+        // EXOCAD: guardas, diseño de sonrisa, guía quirúrgica, modelos de ortodoncia
+        if (["guardas", "diseno_sonrisa", "guia_quirurgica", "modelo_ortodoncia"].includes(tipo)) {
+            return "EXOCAD";
+        }
+        
+        // OTRO: otra
+        if (tipo === "otra") {
+            return "OTRO";
+        }
+        
+        // CEREC: todos los demás
+        return "CEREC";
     }
 
     const itemsFiltrados = useMemo(() => {
@@ -104,18 +133,81 @@ export default function Inventario({ user, perfil }) {
 
     const totalPaginasMovs = Math.ceil(movsFiltrados.length / itemsPorPagina);
 
-    // Filtrar trabajos por búsqueda
+    // Obtener usuarios únicos que han finalizado trabajos
+    const usuariosFinalizadores = useMemo(() => {
+        const nombres = new Set();
+        historialTrabajos.forEach(t => {
+            if (t.completed_by_name) {
+                nombres.add(t.completed_by_name);
+            }
+        });
+        return Array.from(nombres).sort();
+    }, [historialTrabajos]);
+
+    // Filtrar trabajos por búsqueda y filtros avanzados
     const trabajosFiltrados = useMemo(() => {
+        let filtrados = historialTrabajos;
+        
+        // Filtro por búsqueda de texto
         const q = busquedaTrabajos.trim().toLowerCase();
-        if (!q) return historialTrabajos;
-        return historialTrabajos.filter(t => 
-            t.patient_name?.toLowerCase().includes(q) ||
-            t.treatment_name?.toLowerCase().includes(q) ||
-            obtenerNombreTratamiento(t).toLowerCase().includes(q) ||
-            t.created_by_name?.toLowerCase().includes(q) ||
-            t.completed_by_name?.toLowerCase().includes(q)
-        );
-    }, [historialTrabajos, busquedaTrabajos]);
+        if (q) {
+            filtrados = filtrados.filter(t => 
+                t.patient_name?.toLowerCase().includes(q) ||
+                t.treatment_name?.toLowerCase().includes(q) ||
+                obtenerNombreTratamiento(t).toLowerCase().includes(q) ||
+                t.created_by_name?.toLowerCase().includes(q) ||
+                t.completed_by_name?.toLowerCase().includes(q)
+            );
+        }
+        
+        // Filtro por tag (EXOCAD, CEREC)
+        if (filtroTagHistorial) {
+            filtrados = filtrados.filter(t => {
+                const tag = obtenerTagTrabajo(t);
+                return tag === filtroTagHistorial.toUpperCase();
+            });
+        }
+        
+        // Filtro por finalizado por
+        if (filtroFinalizadoPor) {
+            filtrados = filtrados.filter(t => 
+                t.completed_by_name?.toLowerCase() === filtroFinalizadoPor.toLowerCase()
+            );
+        }
+        
+        // Filtro por doctor
+        if (filtroDoctorHistorial) {
+            filtrados = filtrados.filter(t => 
+                t.doctor?.toLowerCase() === filtroDoctorHistorial.toLowerCase()
+            );
+        }
+        
+        // Filtro por fechas
+        if (filtroFechaDesde) {
+            const fechaDesde = new Date(filtroFechaDesde + "T00:00:00");
+            filtrados = filtrados.filter(t => {
+                const fechaTrabajo = new Date(t.created_at);
+                return fechaTrabajo >= fechaDesde;
+            });
+        }
+        
+        if (filtroFechaHasta) {
+            const fechaHasta = new Date(filtroFechaHasta + "T23:59:59");
+            filtrados = filtrados.filter(t => {
+                const fechaTrabajo = new Date(t.created_at);
+                return fechaTrabajo <= fechaHasta;
+            });
+        }
+        
+        // Filtro por tratamiento
+        if (filtroTratamientoHistorial) {
+            filtrados = filtrados.filter(t => 
+                t.treatment_type === filtroTratamientoHistorial
+            );
+        }
+        
+        return filtrados;
+    }, [historialTrabajos, busquedaTrabajos, filtroTagHistorial, filtroFinalizadoPor, filtroDoctorHistorial, filtroFechaDesde, filtroFechaHasta, filtroTratamientoHistorial]);
 
     // Paginar trabajos
     const trabajosPaginados = useMemo(() => {
@@ -126,14 +218,34 @@ export default function Inventario({ user, perfil }) {
 
     const totalPaginasTrabajos = Math.ceil(trabajosFiltrados.length / itemsPorPagina);
 
+    // Filtrar trabajos pendientes por tag
+    const trabajosPendientesFiltrados = useMemo(() => {
+        if (filtroTrabajosPendientes === "todos") {
+            return trabajosPendientes;
+        }
+        return trabajosPendientes.filter(t => {
+            const tag = obtenerTagTrabajo(t);
+            return tag === filtroTrabajosPendientes.toUpperCase();
+        });
+    }, [trabajosPendientes, filtroTrabajosPendientes]);
+
+    // Contadores para cada filtro
+    const contadoresTrabajosPendientes = useMemo(() => {
+        const todos = trabajosPendientes.length;
+        const exocad = trabajosPendientes.filter(t => obtenerTagTrabajo(t) === "EXOCAD").length;
+        const cerec = trabajosPendientes.filter(t => obtenerTagTrabajo(t) === "CEREC").length;
+        const otro = trabajosPendientes.filter(t => obtenerTagTrabajo(t) === "OTRO").length;
+        return { todos, exocad, cerec, otro };
+    }, [trabajosPendientes]);
+
     // Paginar trabajos pendientes
     const trabajosPendientesPaginados = useMemo(() => {
         const inicio = (paginaTrabajosPendientes - 1) * itemsPorPagina;
         const fin = inicio + itemsPorPagina;
-        return trabajosPendientes.slice(inicio, fin);
-    }, [trabajosPendientes, paginaTrabajosPendientes]);
+        return trabajosPendientesFiltrados.slice(inicio, fin);
+    }, [trabajosPendientesFiltrados, paginaTrabajosPendientes]);
 
-    const totalPaginasTrabajosPendientes = Math.ceil(trabajosPendientes.length / itemsPorPagina);
+    const totalPaginasTrabajosPendientes = Math.ceil(trabajosPendientesFiltrados.length / itemsPorPagina);
 
     async function cargarMovimientos(offset = 0, limit = 50) {
         try {
@@ -720,14 +832,79 @@ export default function Inventario({ user, perfil }) {
                 <div className="mt-3 text-gray-500 text-sm">No hay trabajos en proceso.</div>
             ) : (
                 <>
-                    <div className="grid gap-2 mt-3">
+                    <div className="mt-3 flex gap-4 flex-wrap items-center">
+                        <span className="text-sm font-medium">Filtrar por:</span>
+                        <button
+                            onClick={() => {
+                                setFiltroTrabajosPendientes("todos");
+                                setPaginaTrabajosPendientes(1);
+                            }}
+                            className={`px-3 py-1 rounded text-sm ${
+                                filtroTrabajosPendientes === "todos"
+                                    ? "bg-blue-600 text-white"
+                                    : "border hover:bg-gray-50"
+                            }`}
+                        >
+                            Todos ({contadoresTrabajosPendientes.todos})
+                        </button>
+                        <button
+                            onClick={() => {
+                                setFiltroTrabajosPendientes("exocad");
+                                setPaginaTrabajosPendientes(1);
+                            }}
+                            className={`px-3 py-1 rounded text-sm ${
+                                filtroTrabajosPendientes === "exocad"
+                                    ? "bg-blue-600 text-white"
+                                    : "border hover:bg-gray-50"
+                            }`}
+                        >
+                            EXOCAD ({contadoresTrabajosPendientes.exocad})
+                        </button>
+                        <button
+                            onClick={() => {
+                                setFiltroTrabajosPendientes("cerec");
+                                setPaginaTrabajosPendientes(1);
+                            }}
+                            className={`px-3 py-1 rounded text-sm ${
+                                filtroTrabajosPendientes === "cerec"
+                                    ? "bg-blue-600 text-white"
+                                    : "border hover:bg-gray-50"
+                            }`}
+                        >
+                            CEREC ({contadoresTrabajosPendientes.cerec})
+                        </button>
+                        <button
+                            onClick={() => {
+                                setFiltroTrabajosPendientes("otro");
+                                setPaginaTrabajosPendientes(1);
+                            }}
+                            className={`px-3 py-1 rounded text-sm ${
+                                filtroTrabajosPendientes === "otro"
+                                    ? "bg-blue-600 text-white"
+                                    : "border hover:bg-gray-50"
+                            }`}
+                        >
+                            Otro ({contadoresTrabajosPendientes.otro})
+                        </button>
+                    </div>
+
+                    {trabajosPendientesFiltrados.length === 0 ? (
+                        <div className="mt-3 text-gray-500 text-sm">No hay trabajos con ese filtro.</div>
+                    ) : (
+                        <>
+                            <div className="grid gap-2 mt-3">
                         {trabajosPendientesPaginados.map((trabajo) => (
                             <div key={trabajo.id} className="border rounded p-3">
                                 <div className="flex justify-between items-start mb-2">
                                     <div className="flex-1">
-                                        <div className="font-semibold">
-                                            {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
-                                            {trabajo.pieza && ` (Pieza: ${trabajo.pieza})`}
+                                        <div className="flex items-center gap-2">
+                                            <div className="font-semibold">
+                                                {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
+                                                {trabajo.pieza && ` (Pieza: ${trabajo.pieza})`}
+                                            </div>
+                                            <span className="text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded">
+                                                {obtenerTagTrabajo(trabajo)}
+                                            </span>
                                         </div>
                                         {trabajo.doctor && (
                                             <div className="text-sm text-gray-600 mt-1">
@@ -795,7 +972,7 @@ export default function Inventario({ user, perfil }) {
                                 Anterior
                             </button>
                             <span className="text-sm text-gray-600">
-                                Página {paginaTrabajosPendientes} de {totalPaginasTrabajosPendientes} ({trabajosPendientes.length} trabajos)
+                                Página {paginaTrabajosPendientes} de {totalPaginasTrabajosPendientes} ({trabajosPendientesFiltrados.length} trabajos)
                             </span>
                             <button
                                 onClick={() => setPaginaTrabajosPendientes(p => Math.min(totalPaginasTrabajosPendientes, p + 1))}
@@ -806,12 +983,183 @@ export default function Inventario({ user, perfil }) {
                             </button>
                         </div>
                     )}
+                        </>
+                    )}
                 </>
             )}
 
             <div className="flex items-center justify-between mt-10">
                 <h2 className="text-lg font-semibold">Historial de trabajos</h2>
+                <div className="flex items-center gap-2">
+                    {(() => {
+                        const filtrosActivos = [
+                            filtroTagHistorial,
+                            filtroFinalizadoPor,
+                            filtroDoctorHistorial,
+                            filtroFechaDesde,
+                            filtroFechaHasta,
+                            filtroTratamientoHistorial
+                        ].filter(f => f !== "").length;
+                        
+                        if (filtrosActivos > 0) {
+                            return (
+                                <span className="text-sm text-orange-600 font-medium bg-orange-50 px-2 py-1 rounded border border-orange-200">
+                                    {filtrosActivos} filtro{filtrosActivos > 1 ? "s" : ""} activo{filtrosActivos > 1 ? "s" : ""}
+                                </span>
+                            );
+                        }
+                        return null;
+                    })()}
+                    <button
+                        onClick={() => setMostrarFiltrosHistorial(!mostrarFiltrosHistorial)}
+                        className="border rounded px-3 py-1 text-sm hover:bg-gray-50"
+                    >
+                        {mostrarFiltrosHistorial ? "Ocultar filtros" : "Mostrar filtros"}
+                    </button>
+                </div>
             </div>
+
+            {mostrarFiltrosHistorial && (
+                <div className="mt-3 p-4 border rounded bg-gray-50 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Filtro por tag */}
+                        <div>
+                            <label className="text-sm font-medium block mb-2">Filtrar por tag:</label>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        setFiltroTagHistorial(filtroTagHistorial === "exocad" ? "" : "exocad");
+                                        setPaginaTrabajos(1);
+                                    }}
+                                    className={`px-3 py-1 rounded text-sm border ${filtroTagHistorial === "exocad" ? "bg-blue-100 border-blue-500" : ""}`}
+                                >
+                                    EXOCAD
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setFiltroTagHistorial(filtroTagHistorial === "cerec" ? "" : "cerec");
+                                        setPaginaTrabajos(1);
+                                    }}
+                                    className={`px-3 py-1 rounded text-sm border ${filtroTagHistorial === "cerec" ? "bg-blue-100 border-blue-500" : ""}`}
+                                >
+                                    CEREC
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Filtro por finalizado por */}
+                        <div>
+                            <label className="text-sm font-medium block mb-2">Finalizado por:</label>
+                            <select
+                                value={filtroFinalizadoPor}
+                                onChange={(e) => {
+                                    setFiltroFinalizadoPor(e.target.value);
+                                    setPaginaTrabajos(1);
+                                }}
+                                className="border rounded p-2 w-full text-sm"
+                            >
+                                <option value="">Todos</option>
+                                {usuariosFinalizadores.map(usuario => (
+                                    <option key={usuario} value={usuario}>
+                                        {usuario}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Filtro por doctor */}
+                        <div>
+                            <label className="text-sm font-medium block mb-2">Filtrar por doctor:</label>
+                            <select
+                                value={filtroDoctorHistorial}
+                                onChange={(e) => {
+                                    setFiltroDoctorHistorial(e.target.value);
+                                    setPaginaTrabajos(1);
+                                }}
+                                className="border rounded p-2 w-full text-sm"
+                            >
+                                <option value="">Todos los doctores</option>
+                                {DOCTORES.filter(d => d !== "Otro").map(doctor => (
+                                    <option key={doctor} value={doctor}>
+                                        {doctor}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Filtro por tratamiento */}
+                        <div>
+                            <label className="text-sm font-medium block mb-2">Filtrar por tratamiento:</label>
+                            <select
+                                value={filtroTratamientoHistorial}
+                                onChange={(e) => {
+                                    setFiltroTratamientoHistorial(e.target.value);
+                                    setPaginaTrabajos(1);
+                                }}
+                                className="border rounded p-2 w-full text-sm"
+                            >
+                                <option value="">Todos los tratamientos</option>
+                                <option value="carillas">Carillas</option>
+                                <option value="corona_implante">Corona sobre implante</option>
+                                <option value="coronas">Coronas</option>
+                                <option value="diseno_sonrisa">Diseño de sonrisa</option>
+                                <option value="guardas">Guardas</option>
+                                <option value="guia_quirurgica">Guía quirúrgica</option>
+                                <option value="incrustaciones">Incrustaciones</option>
+                                <option value="modelo_ortodoncia">Modelo de ortodoncia</option>
+                                <option value="otra">Otra</option>
+                                <option value="rehabilitacion_completa">Rehabilitación completa</option>
+                            </select>
+                        </div>
+
+                        {/* Filtro por fecha desde */}
+                        <div>
+                            <label className="text-sm font-medium block mb-2">Desde:</label>
+                            <input
+                                type="date"
+                                value={filtroFechaDesde}
+                                onChange={(e) => {
+                                    setFiltroFechaDesde(e.target.value);
+                                    setPaginaTrabajos(1);
+                                }}
+                                className="border rounded p-2 w-full text-sm"
+                            />
+                        </div>
+
+                        {/* Filtro por fecha hasta */}
+                        <div>
+                            <label className="text-sm font-medium block mb-2">Hasta:</label>
+                            <input
+                                type="date"
+                                value={filtroFechaHasta}
+                                onChange={(e) => {
+                                    setFiltroFechaHasta(e.target.value);
+                                    setPaginaTrabajos(1);
+                                }}
+                                className="border rounded p-2 w-full text-sm"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Botón para limpiar filtros */}
+                    <div className="flex justify-end">
+                        <button
+                            onClick={() => {
+                                setFiltroTagHistorial("");
+                                setFiltroFinalizadoPor("");
+                                setFiltroDoctorHistorial("");
+                                setFiltroFechaDesde("");
+                                setFiltroFechaHasta("");
+                                setFiltroTratamientoHistorial("");
+                                setPaginaTrabajos(1);
+                            }}
+                            className="text-sm text-gray-600 hover:text-gray-800 underline"
+                        >
+                            Limpiar todos los filtros
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {cargandoTrabajos ? (
                 <div className="mt-3 text-gray-600">Cargando…</div>
@@ -838,9 +1186,14 @@ export default function Inventario({ user, perfil }) {
                             <div className="grid gap-2 mt-3">
                                 {trabajosPaginados.map((trabajo) => (
                         <div key={trabajo.id} className="border rounded p-3">
-                            <div className="font-semibold">
-                                {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
-                                {trabajo.pieza && ` (Pieza: ${trabajo.pieza})`}
+                            <div className="flex items-center gap-2">
+                                <div className="font-semibold">
+                                    {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
+                                    {trabajo.pieza && ` (Pieza: ${trabajo.pieza})`}
+                                </div>
+                                <span className="text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded">
+                                    {obtenerTagTrabajo(trabajo)}
+                                </span>
                             </div>
                             {trabajo.doctor && (
                                 <div className="text-sm text-gray-600 mt-1">
@@ -864,7 +1217,7 @@ export default function Inventario({ user, perfil }) {
                                 {trabajo.fecha_espera && (
                                     <> · <span className="text-blue-600">Esperado: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}</span></>
                                 )}
-                                {trabajo.etapa && (
+                                {trabajo.etapa && trabajo.status !== "completed" && (
                                     <> · <span className="text-purple-600">Etapa: {trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}</span></>
                                 )}
                             </div>
