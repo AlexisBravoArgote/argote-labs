@@ -37,6 +37,13 @@ export default function Admin({ user }) {
     const [busquedaTrabajos, setBusquedaTrabajos] = useState("");
     const [paginaTrabajos, setPaginaTrabajos] = useState(1);
 
+    // Estados para reportes
+    const [reportes, setReportes] = useState([]);
+    const [cargandoReportes, setCargandoReportes] = useState(false);
+    const [busquedaReportes, setBusquedaReportes] = useState("");
+    const [filtroTipoReporte, setFiltroTipoReporte] = useState(""); // "error", "falla", ""
+    const [paginaReportes, setPaginaReportes] = useState(1);
+
     async function cargarItems() {
         setError("");
         const { data, error } = await supabase
@@ -127,6 +134,7 @@ export default function Admin({ user }) {
         cargarItems();
         cargarMovimientos();
         cargarTrabajos();
+        cargarReportes();
     }, []);
 
     async function cargarMovimientos() {
@@ -271,6 +279,118 @@ export default function Admin({ user }) {
 
         await cargarTrabajos();
     }
+
+    async function cargarReportes() {
+        setCargandoReportes(true);
+        setError("");
+        
+        try {
+            const { data: reportesData, error: errReportes } = await supabase
+                .from("job_reports")
+                .select("id, job_id, report_type, description, reported_by, created_at")
+                .order("created_at", { ascending: false })
+                .limit(200);
+
+            if (errReportes) {
+                console.error("Error al cargar reportes:", errReportes);
+                setError(`Error al cargar reportes: ${errReportes.message}`);
+                setCargandoReportes(false);
+                return;
+            }
+
+            const reportesBase = reportesData || [];
+            if (reportesBase.length === 0) {
+                setReportes([]);
+                setCargandoReportes(false);
+                return;
+            }
+
+            // Obtener información de trabajos y usuarios
+            const jobIds = [...new Set(reportesBase.map(r => r.job_id))];
+            const userIds = [...new Set(reportesBase.map(r => r.reported_by))];
+
+            const [{ data: trabajosData }, { data: perfiles }] = await Promise.all([
+                supabase
+                    .from("jobs")
+                    .select("id, treatment_type, treatment_name, patient_name")
+                    .in("id", jobIds.length ? jobIds : ["00000000-0000-0000-0000-000000000000"]),
+                supabase
+                    .from("profiles")
+                    .select("id, full_name")
+                    .in("id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"])
+            ]);
+
+            const trabajoMap = new Map((trabajosData || []).map(t => [t.id, t]));
+            const userMap = new Map((perfiles || []).map(p => [p.id, p.full_name || p.id]));
+
+            function obtenerNombreTratamiento(trabajo) {
+                if (trabajo.treatment_name) return trabajo.treatment_name;
+                const nombres = {
+                    "corona_implante": "Corona sobre implante",
+                    "guia_quirurgica": "Guía quirúrgica",
+                    "guardas": "Guardas",
+                    "modelo_ortodoncia": "Modelo de ortodoncia",
+                    "diseno_sonrisa": "Diseño de sonrisa",
+                    "rehabilitacion_completa": "Rehabilitación completa",
+                    "coronas": "Coronas",
+                    "carillas": "Carillas",
+                    "incrustaciones": "Incrustaciones",
+                    "otra": "Otro"
+                };
+                return nombres[trabajo.treatment_type] || trabajo.treatment_type;
+            }
+
+            setReportes(
+                reportesBase.map(r => {
+                    const trabajo = trabajoMap.get(r.job_id);
+                    return {
+                        ...r,
+                        job_info: trabajo ? {
+                            patient_name: trabajo.patient_name,
+                            treatment_name: obtenerNombreTratamiento(trabajo)
+                        } : null,
+                        reported_by_name: userMap.get(r.reported_by) || r.reported_by
+                    };
+                })
+            );
+        } catch (err) {
+            console.error("Error inesperado al cargar reportes:", err);
+            setError(`Error inesperado al cargar reportes: ${err.message}`);
+        } finally {
+            setCargandoReportes(false);
+        }
+    }
+
+    // Filtrar y paginar reportes
+    const reportesFiltrados = useMemo(() => {
+        let filtrados = reportes;
+        
+        // Filtro por tipo
+        if (filtroTipoReporte) {
+            filtrados = filtrados.filter(r => r.report_type === filtroTipoReporte);
+        }
+        
+        // Filtro por búsqueda
+        const q = busquedaReportes.trim().toLowerCase();
+        if (q) {
+            filtrados = filtrados.filter(r => 
+                r.description?.toLowerCase().includes(q) ||
+                r.job_info?.patient_name?.toLowerCase().includes(q) ||
+                r.job_info?.treatment_name?.toLowerCase().includes(q) ||
+                r.reported_by_name?.toLowerCase().includes(q)
+            );
+        }
+        
+        return filtrados;
+    }, [reportes, filtroTipoReporte, busquedaReportes]);
+
+    const reportesPaginados = useMemo(() => {
+        const inicio = (paginaReportes - 1) * ITEMS_POR_PAGINA;
+        const fin = inicio + ITEMS_POR_PAGINA;
+        return reportesFiltrados.slice(inicio, fin);
+    }, [reportesFiltrados, paginaReportes]);
+
+    const totalPaginasReportes = Math.ceil(reportesFiltrados.length / ITEMS_POR_PAGINA);
 
     function toggleTag(tag) {
         setTagsSeleccionados(prev => 
@@ -733,6 +853,92 @@ export default function Admin({ user }) {
                             <button
                                 onClick={() => setPaginaTrabajos(p => Math.min(totalPaginasTrabajos, p + 1))}
                                 disabled={paginaTrabajos === totalPaginasTrabajos}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Siguiente
+                            </button>
+                        </div>
+                    )}
+                </>
+            )}
+
+            <h2 className="font-semibold mt-10">Panel de reportes</h2>
+            <p className="text-sm text-gray-600 mt-1 mb-3">
+                Reportes de errores y fallas en los trabajos.
+            </p>
+
+            <div className="mt-3 mb-3 flex gap-3">
+                <input
+                    type="text"
+                    value={busquedaReportes}
+                    onChange={(e) => {
+                        setBusquedaReportes(e.target.value);
+                        setPaginaReportes(1);
+                    }}
+                    placeholder="Buscar reportes..."
+                    className="border rounded p-2 flex-1"
+                />
+                <select
+                    value={filtroTipoReporte}
+                    onChange={(e) => {
+                        setFiltroTipoReporte(e.target.value);
+                        setPaginaReportes(1);
+                    }}
+                    className="border rounded p-2"
+                >
+                    <option value="">Todos los tipos</option>
+                    <option value="error">Error</option>
+                    <option value="falla">Falla</option>
+                </select>
+            </div>
+
+            {cargandoReportes ? (
+                <div className="text-gray-600 mt-3">Cargando reportes…</div>
+            ) : reportes.length === 0 ? (
+                <div className="text-gray-500 text-sm mt-3">No hay reportes.</div>
+            ) : (
+                <>
+                    <div className="grid gap-2 mt-3">
+                        {reportesPaginados.map((reporte) => (
+                            <div key={reporte.id} className="border rounded p-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className={`text-xs px-2 py-1 rounded font-medium ${
+                                        reporte.report_type === "error" 
+                                            ? "bg-red-100 text-red-800" 
+                                            : "bg-red-100 text-red-800"
+                                    }`}>
+                                        {reporte.report_type === "error" ? "ERROR" : "FALLA"}
+                                    </span>
+                                    {reporte.job_info && (
+                                        <span className="text-sm font-medium">
+                                            {reporte.job_info.treatment_name} - {reporte.job_info.patient_name}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="text-sm text-gray-700 mb-2">
+                                    {reporte.description}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                    Reportado por {reporte.reported_by_name} · {new Date(reporte.created_at).toLocaleString("es-MX")}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {totalPaginasReportes > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-4">
+                            <button
+                                onClick={() => setPaginaReportes(p => Math.max(1, p - 1))}
+                                disabled={paginaReportes === 1}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Anterior
+                            </button>
+                            <span className="text-sm text-gray-600">
+                                Página {paginaReportes} de {totalPaginasReportes} ({reportesFiltrados.length} reportes)
+                            </span>
+                            <button
+                                onClick={() => setPaginaReportes(p => Math.min(totalPaginasReportes, p + 1))}
+                                disabled={paginaReportes === totalPaginasReportes}
                                 className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Siguiente

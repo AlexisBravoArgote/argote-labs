@@ -42,11 +42,14 @@ export default function Inventario({ user, perfil }) {
     const [mostrarModalTrabajo, setMostrarModalTrabajo] = useState(false);
     const [mostrarModalFresar, setMostrarModalFresar] = useState(false);
     const [mostrarModalAditamento, setMostrarModalAditamento] = useState(false);
+    const [mostrarModalReporte, setMostrarModalReporte] = useState(false);
     const [trabajoParaFresar, setTrabajoParaFresar] = useState(null);
     const [trabajoParaAditamento, setTrabajoParaAditamento] = useState(null);
+    const [trabajoParaReporte, setTrabajoParaReporte] = useState(null);
     const [trabajosPendientes, setTrabajosPendientes] = useState([]);
     const [historialTrabajos, setHistorialTrabajos] = useState([]);
     const [cargandoTrabajos, setCargandoTrabajos] = useState(false);
+    const [reportes, setReportes] = useState([]);
 
     // Función para obtener nombre de tratamiento (debe estar antes de los useMemo)
     function obtenerNombreTratamiento(trabajo) {
@@ -331,10 +334,16 @@ export default function Inventario({ user, perfil }) {
             // Cargar materiales fresados para trabajos en proceso
             const jobIds = trabajosConNombres.map(t => t.id);
             if (jobIds.length > 0) {
-                const { data: materiales, error: errMateriales } = await supabase
-                    .from("job_materials")
-                    .select("job_id, item_id, quantity")
-                    .in("job_id", jobIds);
+                const [{ data: materiales, error: errMateriales }, { data: reportesData, error: errReportes }] = await Promise.all([
+                    supabase
+                        .from("job_materials")
+                        .select("job_id, item_id, quantity")
+                        .in("job_id", jobIds),
+                    supabase
+                        .from("job_reports")
+                        .select("job_id, report_type")
+                        .in("job_id", jobIds)
+                ]);
 
                 if (!errMateriales && materiales) {
                     const itemIds = [...new Set(materiales.map(m => m.item_id))];
@@ -359,7 +368,18 @@ export default function Inventario({ user, perfil }) {
                         });
                     });
 
-                    // Agregar materiales a cada trabajo y verificar si tiene aditamento
+                    // Agrupar reportes por job_id
+                    const reportesPorJob = new Map();
+                    if (!errReportes && reportesData) {
+                        reportesData.forEach(r => {
+                            if (!reportesPorJob.has(r.job_id)) {
+                                reportesPorJob.set(r.job_id, []);
+                            }
+                            reportesPorJob.get(r.job_id).push(r.report_type);
+                        });
+                    }
+
+                    // Agregar materiales y reportes a cada trabajo
                     trabajosConNombres.forEach(t => {
                         t.materiales = materialesPorJob.get(t.id) || [];
                         // Verificar si ya tiene aditamento (categoría "other" o nombre contiene "aditamento")
@@ -367,17 +387,21 @@ export default function Inventario({ user, perfil }) {
                             m.item_category === "other" || 
                             m.item_name.toLowerCase().includes("aditamento")
                         );
+                        // Agregar reportes
+                        t.reportes = reportesPorJob.get(t.id) || [];
                     });
                 } else {
                     // Si no hay materiales, marcar que no tiene aditamento
                     trabajosConNombres.forEach(t => {
                         t.tieneAditamento = false;
+                        t.reportes = [];
                     });
                 }
             } else {
                 // Si no hay trabajos, marcar que no tienen aditamento
                 trabajosConNombres.forEach(t => {
                     t.tieneAditamento = false;
+                    t.reportes = [];
                 });
             }
 
@@ -408,13 +432,19 @@ export default function Inventario({ user, perfil }) {
                 completed_by_name: t.completed_by ? (userMap.get(t.completed_by) || t.completed_by) : null
             }));
 
-            // Cargar materiales fresados para historial
+            // Cargar materiales fresados y reportes para historial
             const jobIdsHistorial = historialConNombres.map(t => t.id);
             if (jobIdsHistorial.length > 0) {
-                const { data: materiales, error: errMateriales } = await supabase
-                    .from("job_materials")
-                    .select("job_id, item_id, quantity")
-                    .in("job_id", jobIdsHistorial);
+                const [{ data: materiales, error: errMateriales }, { data: reportesData, error: errReportes }] = await Promise.all([
+                    supabase
+                        .from("job_materials")
+                        .select("job_id, item_id, quantity")
+                        .in("job_id", jobIdsHistorial),
+                    supabase
+                        .from("job_reports")
+                        .select("job_id, report_type")
+                        .in("job_id", jobIdsHistorial)
+                ]);
 
                 if (!errMateriales && materiales) {
                     const itemIds = [...new Set(materiales.map(m => m.item_id))];
@@ -437,9 +467,26 @@ export default function Inventario({ user, perfil }) {
                         });
                     });
 
-                    // Agregar materiales a cada trabajo
+                    // Agrupar reportes por job_id
+                    const reportesPorJob = new Map();
+                    if (!errReportes && reportesData) {
+                        reportesData.forEach(r => {
+                            if (!reportesPorJob.has(r.job_id)) {
+                                reportesPorJob.set(r.job_id, []);
+                            }
+                            reportesPorJob.get(r.job_id).push(r.report_type);
+                        });
+                    }
+
+                    // Agregar materiales y reportes a cada trabajo
                     historialConNombres.forEach(t => {
                         t.materiales = materialesPorJob.get(t.id) || [];
+                        t.reportes = reportesPorJob.get(t.id) || [];
+                    });
+                } else {
+                    historialConNombres.forEach(t => {
+                        t.materiales = [];
+                        t.reportes = [];
                     });
                 }
             }
@@ -680,6 +727,42 @@ export default function Inventario({ user, perfil }) {
     function abrirModalAditamento(trabajo) {
         setTrabajoParaAditamento(trabajo);
         setMostrarModalAditamento(true);
+    }
+
+    function abrirModalReporte(trabajo) {
+        setTrabajoParaReporte(trabajo);
+        setMostrarModalReporte(true);
+    }
+
+    async function confirmarReporte(tipoReporte, descripcion) {
+        if (!trabajoParaReporte || !tipoReporte || !descripcion.trim()) {
+            setError("Debes completar todos los campos del reporte.");
+            return;
+        }
+
+        setError("");
+        setMostrarModalReporte(false);
+
+        try {
+            const { error: errReporte } = await supabase
+                .from("job_reports")
+                .insert({
+                    job_id: trabajoParaReporte.id,
+                    report_type: tipoReporte,
+                    description: descripcion.trim(),
+                    reported_by: user.id
+                });
+
+            if (errReporte) {
+                setError(`Error al crear reporte: ${errReporte.message}`);
+                return;
+            }
+
+            setTrabajoParaReporte(null);
+            await cargar();
+        } catch (err) {
+            setError(`Error inesperado: ${err.message}`);
+        }
     }
 
     async function confirmarFresado(materiales) {
@@ -933,8 +1016,30 @@ export default function Inventario({ user, perfil }) {
                                                 ))}
                                             </div>
                                         )}
+                                        {trabajo.reportes && trabajo.reportes.length > 0 && (
+                                            <div className="flex gap-1 mt-2 flex-wrap">
+                                                {trabajo.reportes.map((tipo, idx) => (
+                                                    <span 
+                                                        key={idx}
+                                                        className={`text-xs px-2 py-1 rounded ${
+                                                            tipo === "error" 
+                                                                ? "bg-red-100 text-red-800" 
+                                                                : "bg-red-100 text-red-800"
+                                                        }`}
+                                                    >
+                                                        {tipo === "error" ? "ERROR" : "FALLA"}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="flex gap-2">
+                                        <button
+                                            onClick={() => abrirModalReporte(trabajo)}
+                                            className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 text-sm"
+                                        >
+                                            Reportar
+                                        </button>
                                         {trabajo.treatment_type === "corona_implante" && !trabajo.tieneAditamento && (
                                             <button
                                                 onClick={() => abrirModalAditamento(trabajo)}
@@ -1232,6 +1337,22 @@ export default function Inventario({ user, perfil }) {
                                     ))}
                                 </div>
                             )}
+                            {trabajo.reportes && trabajo.reportes.length > 0 && (
+                                <div className="flex gap-1 mt-2 flex-wrap">
+                                    {trabajo.reportes.map((tipo, idx) => (
+                                        <span 
+                                            key={idx}
+                                            className={`text-xs px-2 py-1 rounded ${
+                                                tipo === "error" 
+                                                    ? "bg-red-100 text-red-800" 
+                                                    : "bg-red-100 text-red-800"
+                                            }`}
+                                        >
+                                            {tipo === "error" ? "ERROR" : "FALLA"}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     ))}
                             </div>
@@ -1474,6 +1595,120 @@ export default function Inventario({ user, perfil }) {
                     onConfirm={confirmarAditamento}
                 />
             )}
+
+            {mostrarModalReporte && trabajoParaReporte && (
+                <ModalReporte
+                    trabajo={trabajoParaReporte}
+                    onClose={() => {
+                        setMostrarModalReporte(false);
+                        setTrabajoParaReporte(null);
+                    }}
+                    onConfirm={confirmarReporte}
+                />
+            )}
+        </div>
+    );
+}
+
+// Componente Modal para Reporte
+function ModalReporte({ trabajo, onClose, onConfirm }) {
+    const [tipoReporte, setTipoReporte] = useState(""); // "error" o "falla"
+    const [descripcion, setDescripcion] = useState("");
+    const [error, setError] = useState("");
+
+    function validarYConfirmar() {
+        setError("");
+
+        if (!tipoReporte) {
+            setError("Debes seleccionar el tipo de reporte (Error o Falla).");
+            return;
+        }
+
+        if (!descripcion.trim()) {
+            setError("Debes escribir una descripción del problema.");
+            return;
+        }
+
+        onConfirm(tipoReporte, descripcion);
+    }
+
+    return (
+        <div
+            className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+            onClick={onClose}
+        >
+            <div
+                className="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h3 className="text-xl font-bold mb-4">Reportar - {trabajo.patient_name}</h3>
+
+                {error && <div className="text-red-600 mb-4 text-sm">{error}</div>}
+
+                <div className="mb-4">
+                    <label className="text-sm font-medium block mb-2">
+                        Tipo de reporte:
+                    </label>
+                    <div className="space-y-2">
+                        <label className="flex items-start gap-2 cursor-pointer p-3 border rounded hover:bg-gray-50">
+                            <input
+                                type="radio"
+                                name="tipoReporte"
+                                value="error"
+                                checked={tipoReporte === "error"}
+                                onChange={(e) => setTipoReporte(e.target.value)}
+                                className="mt-1"
+                            />
+                            <div>
+                                <div className="font-medium">Error</div>
+                                <div className="text-xs text-gray-600">
+                                    Algo no tan grave que necesita atención pero no requiere volver a hacer el trabajo.
+                                </div>
+                            </div>
+                        </label>
+                        <label className="flex items-start gap-2 cursor-pointer p-3 border rounded hover:bg-gray-50">
+                            <input
+                                type="radio"
+                                name="tipoReporte"
+                                value="falla"
+                                checked={tipoReporte === "falla"}
+                                onChange={(e) => setTipoReporte(e.target.value)}
+                                className="mt-1"
+                            />
+                            <div>
+                                <div className="font-medium">Falla</div>
+                                <div className="text-xs text-gray-600">
+                                    El trabajo falló y se tiene que volver a hacer completamente.
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div className="mb-4">
+                    <label className="text-sm font-medium block mb-2">
+                        Descripción del problema:
+                    </label>
+                    <textarea
+                        value={descripcion}
+                        onChange={(e) => setDescripcion(e.target.value)}
+                        placeholder="Describe qué pasó..."
+                        className="border rounded p-2 w-full h-32 resize-none"
+                    />
+                </div>
+
+                <div className="flex justify-end gap-2 mt-6">
+                    <button onClick={onClose} className="border px-4 py-2 rounded hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={validarYConfirmar}
+                        className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700"
+                    >
+                        Confirmar reporte
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
