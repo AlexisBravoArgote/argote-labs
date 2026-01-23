@@ -52,6 +52,9 @@ export default function Inventario({ user, perfil }) {
     const [reportes, setReportes] = useState([]);
     const [cargandoReportes, setCargandoReportes] = useState(false);
     const [paginaReportes, setPaginaReportes] = useState(1);
+    const [mostrarModalCalendario, setMostrarModalCalendario] = useState(false);
+    const [trabajosCalendario, setTrabajosCalendario] = useState([]);
+    const [cargandoCalendario, setCargandoCalendario] = useState(false);
 
     // Función para obtener nombre de tratamiento (debe estar antes de los useMemo)
     function obtenerNombreTratamiento(trabajo) {
@@ -532,6 +535,54 @@ export default function Inventario({ user, perfil }) {
         }
     }
 
+    async function cargarTrabajosCalendario() {
+        setCargandoCalendario(true);
+        try {
+            // Cargar todos los trabajos (pendientes y finalizados)
+            const { data: todosTrabajos, error: errTrabajos } = await supabase
+                .from("jobs")
+                .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, status, fecha_espera, completed_at, created_at")
+                .order("created_at", { ascending: false });
+
+            if (errTrabajos) {
+                console.error("Error cargando trabajos para calendario:", errTrabajos);
+                setTrabajosCalendario([]);
+                setCargandoCalendario(false);
+                return;
+            }
+
+            // Mapear trabajos con sus fechas relevantes
+            const trabajosConFechas = (todosTrabajos || []).map(t => {
+                let fechaRelevante = null;
+                let tipoFecha = null; // "esperada" o "finalizado"
+                
+                if (t.status === "completed" && t.completed_at) {
+                    // Trabajo finalizado: usar fecha de finalización
+                    fechaRelevante = new Date(t.completed_at);
+                    tipoFecha = "finalizado";
+                } else if (t.fecha_espera) {
+                    // Trabajo pendiente: usar fecha esperada
+                    fechaRelevante = new Date(t.fecha_espera + "T00:00:00");
+                    tipoFecha = "esperada";
+                }
+                
+                return {
+                    ...t,
+                    fechaRelevante,
+                    tipoFecha,
+                    treatment_name_display: obtenerNombreTratamiento(t)
+                };
+            }).filter(t => t.fechaRelevante !== null); // Solo trabajos con fecha relevante
+
+            setTrabajosCalendario(trabajosConFechas);
+        } catch (err) {
+            console.error("Error inesperado al cargar trabajos para calendario:", err);
+            setTrabajosCalendario([]);
+        } finally {
+            setCargandoCalendario(false);
+        }
+    }
+
     async function cargarReportes() {
         setCargandoReportes(true);
         try {
@@ -958,13 +1009,38 @@ export default function Inventario({ user, perfil }) {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={async () => {
+                            setMostrarModalCalendario(true);
+                            await cargarTrabajosCalendario();
+                        }}
+                        className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                        title="Ver calendario de trabajos"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                    </button>
                     {perfil?.role === "admin" && (
-                        <Link to="/cerec/admin" className="border px-3 py-2 rounded">
-                            Panel admin
+                        <Link 
+                            to="/cerec/admin" 
+                            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                            title="Panel de administración"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
                         </Link>
                     )}
-                    <button onClick={logout} className="border px-3 py-2 rounded">
-                        Cerrar sesión
+                    <button 
+                        onClick={logout} 
+                        className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                        title="Cerrar sesión"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
                     </button>
                 </div>
             </div>
@@ -1689,6 +1765,15 @@ export default function Inventario({ user, perfil }) {
                 />
             )}
 
+            {mostrarModalCalendario && (
+                <ModalCalendario
+                    trabajos={trabajosCalendario}
+                    cargando={cargandoCalendario}
+                    onClose={() => setMostrarModalCalendario(false)}
+                    obtenerNombreTratamiento={obtenerNombreTratamiento}
+                />
+            )}
+
             <h2 className="text-lg font-semibold mt-10">Historial de errores y fallas</h2>
             <p className="text-sm text-gray-600 mt-1 mb-3">
                 Reportes de errores y fallas en los trabajos.
@@ -1749,6 +1834,258 @@ export default function Inventario({ user, perfil }) {
                     )}
                 </>
             )}
+        </div>
+    );
+}
+
+// Componente Modal para Calendario
+function ModalCalendario({ trabajos, cargando, onClose, obtenerNombreTratamiento }) {
+    const [mesActual, setMesActual] = useState(new Date().getMonth());
+    const [añoActual, setAñoActual] = useState(new Date().getFullYear());
+    const [fechaSeleccionada, setFechaSeleccionada] = useState(null);
+
+    const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    const diasSemana = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+    // Obtener primer día del mes y cantidad de días
+    const primerDia = new Date(añoActual, mesActual, 1);
+    const ultimoDia = new Date(añoActual, mesActual + 1, 0);
+    const diasEnMes = ultimoDia.getDate();
+    const diaInicioSemana = primerDia.getDay();
+
+    // Agrupar trabajos por fecha
+    const trabajosPorFecha = useMemo(() => {
+        const mapa = new Map();
+        trabajos.forEach(t => {
+            if (t.fechaRelevante) {
+                const fechaKey = t.fechaRelevante.toISOString().split('T')[0];
+                if (!mapa.has(fechaKey)) {
+                    mapa.set(fechaKey, []);
+                }
+                mapa.get(fechaKey).push(t);
+            }
+        });
+        return mapa;
+    }, [trabajos]);
+
+    // Obtener trabajos del día seleccionado
+    const trabajosDiaSeleccionado = fechaSeleccionada 
+        ? trabajosPorFecha.get(fechaSeleccionada) || []
+        : [];
+
+    function cambiarMes(delta) {
+        let nuevoMes = mesActual + delta;
+        let nuevoAño = añoActual;
+        
+        if (nuevoMes < 0) {
+            nuevoMes = 11;
+            nuevoAño--;
+        } else if (nuevoMes > 11) {
+            nuevoMes = 0;
+            nuevoAño++;
+        }
+        
+        setMesActual(nuevoMes);
+        setAñoActual(nuevoAño);
+        setFechaSeleccionada(null);
+    }
+
+    function obtenerFechaKey(dia) {
+        const fecha = new Date(añoActual, mesActual, dia);
+        return fecha.toISOString().split('T')[0];
+    }
+
+    function esHoy(dia) {
+        const hoy = new Date();
+        return dia === hoy.getDate() && 
+               mesActual === hoy.getMonth() && 
+               añoActual === hoy.getFullYear();
+    }
+
+    function tieneTrabajos(dia) {
+        const fechaKey = obtenerFechaKey(dia);
+        return trabajosPorFecha.has(fechaKey);
+    }
+
+    function seleccionarFecha(dia) {
+        const fechaKey = obtenerFechaKey(dia);
+        setFechaSeleccionada(fechaSeleccionada === fechaKey ? null : fechaKey);
+    }
+
+    // Crear array de días del mes
+    const dias = [];
+    for (let i = 0; i < diaInicioSemana; i++) {
+        dias.push(null); // Días vacíos al inicio
+    }
+    for (let dia = 1; dia <= diasEnMes; dia++) {
+        dias.push(dia);
+    }
+
+    return (
+        <div
+            className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+            onClick={onClose}
+        >
+            <div
+                className="bg-white rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between z-10">
+                    <h3 className="text-xl font-bold">Calendario de Trabajos</h3>
+                    <button
+                        onClick={onClose}
+                        className="text-gray-500 hover:text-gray-700"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div className="p-6">
+                    {cargando ? (
+                        <div className="text-center py-8 text-gray-600">Cargando trabajos...</div>
+                    ) : (
+                        <>
+                            {/* Controles del calendario */}
+                            <div className="flex items-center justify-between mb-6">
+                                <button
+                                    onClick={() => cambiarMes(-1)}
+                                    className="p-2 hover:bg-gray-100 rounded"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                </button>
+                                <h4 className="text-lg font-semibold">
+                                    {meses[mesActual]} {añoActual}
+                                </h4>
+                                <button
+                                    onClick={() => cambiarMes(1)}
+                                    className="p-2 hover:bg-gray-100 rounded"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            {/* Calendario */}
+                            <div className="grid grid-cols-7 gap-1 mb-6">
+                                {diasSemana.map(dia => (
+                                    <div key={dia} className="text-center text-sm font-medium text-gray-600 py-2">
+                                        {dia}
+                                    </div>
+                                ))}
+                                {dias.map((dia, idx) => {
+                                    if (dia === null) {
+                                        return <div key={`empty-${idx}`} className="aspect-square" />;
+                                    }
+                                    
+                                    const fechaKey = obtenerFechaKey(dia);
+                                    const tieneTrab = tieneTrabajos(dia);
+                                    const esHoyDia = esHoy(dia);
+                                    const estaSeleccionado = fechaSeleccionada === fechaKey;
+                                    
+                                    return (
+                                        <button
+                                            key={dia}
+                                            onClick={() => seleccionarFecha(dia)}
+                                            className={`aspect-square border rounded p-1 text-sm transition-colors ${
+                                                esHoyDia 
+                                                    ? "bg-blue-100 border-blue-500 font-bold" 
+                                                    : estaSeleccionado
+                                                        ? "bg-blue-200 border-blue-600"
+                                                        : tieneTrab
+                                                            ? "bg-orange-50 border-orange-300 hover:bg-orange-100"
+                                                            : "hover:bg-gray-50"
+                                            }`}
+                                        >
+                                            <div className="flex flex-col items-center justify-center h-full">
+                                                <span>{dia}</span>
+                                                {tieneTrab && (
+                                                    <span className="text-xs mt-1">
+                                                        <span className="inline-block w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Trabajos del día seleccionado */}
+                            {fechaSeleccionada && (
+                                <div className="border-t pt-4">
+                                    <h5 className="font-semibold mb-3">
+                                        Trabajos del {new Date(fechaSeleccionada + "T00:00:00").toLocaleDateString("es-MX", { 
+                                            weekday: "long", 
+                                            year: "numeric", 
+                                            month: "long", 
+                                            day: "numeric" 
+                                        })}
+                                    </h5>
+                                    {trabajosDiaSeleccionado.length === 0 ? (
+                                        <p className="text-gray-500 text-sm">No hay trabajos en esta fecha.</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {trabajosDiaSeleccionado.map(trabajo => (
+                                                <div 
+                                                    key={trabajo.id} 
+                                                    className={`border rounded p-3 ${
+                                                        trabajo.tipoFecha === "finalizado" 
+                                                            ? "bg-green-50 border-green-200" 
+                                                            : "bg-orange-50 border-orange-200"
+                                                    }`}
+                                                >
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <span className={`text-xs px-2 py-1 rounded font-medium ${
+                                                                    trabajo.tipoFecha === "finalizado"
+                                                                        ? "bg-green-200 text-green-800"
+                                                                        : "bg-orange-200 text-orange-800"
+                                                                }`}>
+                                                                    {trabajo.tipoFecha === "finalizado" ? "Finalizado" : "Pendiente"}
+                                                                </span>
+                                                                <span className="font-semibold">
+                                                                    {trabajo.treatment_name_display} - {trabajo.patient_name}
+                                                                </span>
+                                                            </div>
+                                                            {trabajo.pieza && (
+                                                                <div className="text-sm text-gray-600">
+                                                                    Pieza: {trabajo.pieza}
+                                                                </div>
+                                                            )}
+                                                            {trabajo.doctor && (
+                                                                <div className="text-sm text-gray-600">
+                                                                    Doctor: {trabajo.doctor}
+                                                                </div>
+                                                            )}
+                                                            <div className="text-xs text-gray-500 mt-1">
+                                                                {trabajo.tipoFecha === "finalizado" 
+                                                                    ? `Finalizado el ${new Date(trabajo.completed_at).toLocaleString("es-MX")}`
+                                                                    : `Fecha esperada: ${new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}`
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {!fechaSeleccionada && (
+                                <div className="text-center text-gray-500 text-sm py-4">
+                                    Selecciona una fecha para ver los trabajos
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }
