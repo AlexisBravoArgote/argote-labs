@@ -24,6 +24,7 @@ export default function Inventario({ user, perfil }) {
     const [paginaItems, setPaginaItems] = useState(1);
     const [paginaMovs, setPaginaMovs] = useState(1);
     const [paginaTrabajos, setPaginaTrabajos] = useState(1);
+    const [paginaTrabajosPendientes, setPaginaTrabajosPendientes] = useState(1);
     const itemsPorPagina = 4;
 
     const [modalItem, setModalItem] = useState(null);
@@ -123,6 +124,15 @@ export default function Inventario({ user, perfil }) {
 
     const totalPaginasTrabajos = Math.ceil(trabajosFiltrados.length / itemsPorPagina);
 
+    // Paginar trabajos pendientes
+    const trabajosPendientesPaginados = useMemo(() => {
+        const inicio = (paginaTrabajosPendientes - 1) * itemsPorPagina;
+        const fin = inicio + itemsPorPagina;
+        return trabajosPendientes.slice(inicio, fin);
+    }, [trabajosPendientes, paginaTrabajosPendientes]);
+
+    const totalPaginasTrabajosPendientes = Math.ceil(trabajosPendientes.length / itemsPorPagina);
+
     async function cargarMovimientos(offset = 0, limit = 50) {
         try {
             const { data: m, error: mErr, count } = await supabase
@@ -199,12 +209,48 @@ export default function Inventario({ user, perfil }) {
 
             const userMap = new Map((perfiles || []).map(p => [p.id, p.full_name || p.id]));
 
-            setTrabajosPendientes(
-                (pendientes || []).map(t => ({
-                    ...t,
-                    created_by_name: userMap.get(t.created_by) || t.created_by
-                }))
-            );
+            const trabajosConNombres = (pendientes || []).map(t => ({
+                ...t,
+                created_by_name: userMap.get(t.created_by) || t.created_by
+            }));
+
+            // Cargar materiales fresados para trabajos en proceso
+            const jobIds = trabajosConNombres.map(t => t.id);
+            if (jobIds.length > 0) {
+                const { data: materiales, error: errMateriales } = await supabase
+                    .from("job_materials")
+                    .select("job_id, item_id, quantity")
+                    .in("job_id", jobIds);
+
+                if (!errMateriales && materiales) {
+                    const itemIds = [...new Set(materiales.map(m => m.item_id))];
+                    const { data: itemsData } = await supabase
+                        .from("items")
+                        .select("id, name")
+                        .in("id", itemIds.length ? itemIds : ["00000000-0000-0000-0000-000000000000"]);
+
+                    const itemMap = new Map((itemsData || []).map(i => [i.id, i.name]));
+
+                    // Agrupar materiales por job_id
+                    const materialesPorJob = new Map();
+                    materiales.forEach(m => {
+                        if (!materialesPorJob.has(m.job_id)) {
+                            materialesPorJob.set(m.job_id, []);
+                        }
+                        materialesPorJob.get(m.job_id).push({
+                            item_name: itemMap.get(m.item_id) || m.item_id,
+                            quantity: m.quantity
+                        });
+                    });
+
+                    // Agregar materiales a cada trabajo
+                    trabajosConNombres.forEach(t => {
+                        t.materiales = materialesPorJob.get(t.id) || [];
+                    });
+                }
+            }
+
+            setTrabajosPendientes(trabajosConNombres);
         }
 
         // Cargar historial de trabajos
@@ -225,13 +271,49 @@ export default function Inventario({ user, perfil }) {
 
             const userMap = new Map((perfiles || []).map(p => [p.id, p.full_name || p.id]));
 
-            setHistorialTrabajos(
-                (historial || []).map(t => ({
-                    ...t,
-                    created_by_name: userMap.get(t.created_by) || t.created_by,
-                    completed_by_name: t.completed_by ? (userMap.get(t.completed_by) || t.completed_by) : null
-                }))
-            );
+            const historialConNombres = (historial || []).map(t => ({
+                ...t,
+                created_by_name: userMap.get(t.created_by) || t.created_by,
+                completed_by_name: t.completed_by ? (userMap.get(t.completed_by) || t.completed_by) : null
+            }));
+
+            // Cargar materiales fresados para historial
+            const jobIdsHistorial = historialConNombres.map(t => t.id);
+            if (jobIdsHistorial.length > 0) {
+                const { data: materiales, error: errMateriales } = await supabase
+                    .from("job_materials")
+                    .select("job_id, item_id, quantity")
+                    .in("job_id", jobIdsHistorial);
+
+                if (!errMateriales && materiales) {
+                    const itemIds = [...new Set(materiales.map(m => m.item_id))];
+                    const { data: itemsData } = await supabase
+                        .from("items")
+                        .select("id, name")
+                        .in("id", itemIds.length ? itemIds : ["00000000-0000-0000-0000-000000000000"]);
+
+                    const itemMap = new Map((itemsData || []).map(i => [i.id, i.name]));
+
+                    // Agrupar materiales por job_id
+                    const materialesPorJob = new Map();
+                    materiales.forEach(m => {
+                        if (!materialesPorJob.has(m.job_id)) {
+                            materialesPorJob.set(m.job_id, []);
+                        }
+                        materialesPorJob.get(m.job_id).push({
+                            item_name: itemMap.get(m.item_id) || m.item_id,
+                            quantity: m.quantity
+                        });
+                    });
+
+                    // Agregar materiales a cada trabajo
+                    historialConNombres.forEach(t => {
+                        t.materiales = materialesPorJob.get(t.id) || [];
+                    });
+                }
+            }
+
+            setHistorialTrabajos(historialConNombres);
         }
 
         setCargandoTrabajos(false);
@@ -564,52 +646,86 @@ export default function Inventario({ user, perfil }) {
             ) : trabajosPendientes.length === 0 ? (
                 <div className="mt-3 text-gray-500 text-sm">No hay trabajos en proceso.</div>
             ) : (
-                <div className="grid gap-2 mt-3">
-                    {trabajosPendientes.map((trabajo) => (
-                        <div key={trabajo.id} className="border rounded p-3">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="flex-1">
-                                    <div className="font-semibold">
-                                        {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
-                                        {trabajo.pieza && ` (Pieza: ${trabajo.pieza})`}
-                                    </div>
-                                    {trabajo.doctor && (
-                                        <div className="text-sm text-gray-600 mt-1">
-                                            Doctor: {trabajo.doctor}
+                <>
+                    <div className="grid gap-2 mt-3">
+                        {trabajosPendientesPaginados.map((trabajo) => (
+                            <div key={trabajo.id} className="border rounded p-3">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="flex-1">
+                                        <div className="font-semibold">
+                                            {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
+                                            {trabajo.pieza && ` (Pieza: ${trabajo.pieza})`}
                                         </div>
-                                    )}
-                                    <div className="text-sm text-gray-600">
-                                        Iniciado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
-                                    </div>
-                                    {trabajo.fecha_espera && (
-                                        <div className="text-sm text-blue-600 mt-1">
-                                            Fecha esperada: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}
+                                        {trabajo.doctor && (
+                                            <div className="text-sm text-gray-600 mt-1">
+                                                Doctor: {trabajo.doctor}
+                                            </div>
+                                        )}
+                                        <div className="text-sm text-gray-600">
+                                            Iniciado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
                                         </div>
-                                    )}
-                                    <div className="text-sm font-medium mt-1">
-                                        Etapa: <span className="text-purple-600">{trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}</span>
+                                        {trabajo.fecha_espera && (
+                                            <div className="text-sm text-blue-600 mt-1">
+                                                Fecha esperada: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}
+                                            </div>
+                                        )}
+                                        <div className="text-sm font-medium mt-1">
+                                            Etapa: <span className="text-purple-600">{trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}</span>
+                                        </div>
+                                        {trabajo.materiales && trabajo.materiales.length > 0 && (
+                                            <div className="text-sm mt-2">
+                                                <span className="font-medium">Cubos fresados:</span>{" "}
+                                                {trabajo.materiales.map((m, idx) => (
+                                                    <span key={idx}>
+                                                        {m.item_name} ({m.quantity})
+                                                        {idx < trabajo.materiales.length - 1 ? ", " : ""}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                                <div className="flex gap-2">
-                                    {necesitaFresado(trabajo) && trabajo.etapa === "diseño" && (
+                                    <div className="flex gap-2">
+                                        {necesitaFresado(trabajo) && trabajo.etapa === "diseño" && (
+                                            <button
+                                                onClick={() => abrirModalFresar(trabajo)}
+                                                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
+                                            >
+                                                Fresar
+                                            </button>
+                                        )}
                                         <button
-                                            onClick={() => abrirModalFresar(trabajo)}
-                                            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
+                                            onClick={() => finalizarTrabajo(trabajo.id)}
+                                            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm"
                                         >
-                                            Fresar
+                                            Finalizar trabajo
                                         </button>
-                                    )}
-                                    <button
-                                        onClick={() => finalizarTrabajo(trabajo.id)}
-                                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm"
-                                    >
-                                        Trabajo finalizado
-                                    </button>
+                                    </div>
                                 </div>
                             </div>
+                        ))}
+                    </div>
+                    {totalPaginasTrabajosPendientes > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-4">
+                            <button
+                                onClick={() => setPaginaTrabajosPendientes(p => Math.max(1, p - 1))}
+                                disabled={paginaTrabajosPendientes === 1}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Anterior
+                            </button>
+                            <span className="text-sm text-gray-600">
+                                Página {paginaTrabajosPendientes} de {totalPaginasTrabajosPendientes} ({trabajosPendientes.length} trabajos)
+                            </span>
+                            <button
+                                onClick={() => setPaginaTrabajosPendientes(p => Math.min(totalPaginasTrabajosPendientes, p + 1))}
+                                disabled={paginaTrabajosPendientes === totalPaginasTrabajosPendientes}
+                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Siguiente
+                            </button>
                         </div>
-                    ))}
-                </div>
+                    )}
+                </>
             )}
 
             <div className="flex items-center justify-between mt-10">
@@ -671,6 +787,17 @@ export default function Inventario({ user, perfil }) {
                                     <> · <span className="text-purple-600">Etapa: {trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}</span></>
                                 )}
                             </div>
+                            {trabajo.materiales && trabajo.materiales.length > 0 && (
+                                <div className="text-sm mt-2">
+                                    <span className="font-medium">Cubos fresados:</span>{" "}
+                                    {trabajo.materiales.map((m, idx) => (
+                                        <span key={idx}>
+                                            {m.item_name} ({m.quantity})
+                                            {idx < trabajo.materiales.length - 1 ? ", " : ""}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     ))}
                             </div>
