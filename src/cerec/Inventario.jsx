@@ -228,10 +228,10 @@ export default function Inventario({ user, perfil }) {
                     const itemIds = [...new Set(materiales.map(m => m.item_id))];
                     const { data: itemsData } = await supabase
                         .from("items")
-                        .select("id, name")
+                        .select("id, name, category")
                         .in("id", itemIds.length ? itemIds : ["00000000-0000-0000-0000-000000000000"]);
 
-                    const itemMap = new Map((itemsData || []).map(i => [i.id, i.name]));
+                    const itemMap = new Map((itemsData || []).map(i => [i.id, { name: i.name, category: i.category }]));
 
                     // Agrupar materiales por job_id
                     const materialesPorJob = new Map();
@@ -239,17 +239,34 @@ export default function Inventario({ user, perfil }) {
                         if (!materialesPorJob.has(m.job_id)) {
                             materialesPorJob.set(m.job_id, []);
                         }
+                        const itemInfo = itemMap.get(m.item_id) || { name: m.item_id, category: null };
                         materialesPorJob.get(m.job_id).push({
-                            item_name: itemMap.get(m.item_id) || m.item_id,
-                            quantity: m.quantity
+                            item_name: itemInfo.name,
+                            quantity: m.quantity,
+                            item_category: itemInfo.category
                         });
                     });
 
-                    // Agregar materiales a cada trabajo
+                    // Agregar materiales a cada trabajo y verificar si tiene aditamento
                     trabajosConNombres.forEach(t => {
                         t.materiales = materialesPorJob.get(t.id) || [];
+                        // Verificar si ya tiene aditamento (categoría "other" o nombre contiene "aditamento")
+                        t.tieneAditamento = t.materiales.some(m => 
+                            m.item_category === "other" || 
+                            m.item_name.toLowerCase().includes("aditamento")
+                        );
+                    });
+                } else {
+                    // Si no hay materiales, marcar que no tiene aditamento
+                    trabajosConNombres.forEach(t => {
+                        t.tieneAditamento = false;
                     });
                 }
+            } else {
+                // Si no hay trabajos, marcar que no tienen aditamento
+                trabajosConNombres.forEach(t => {
+                    t.tieneAditamento = false;
+                });
             }
 
             setTrabajosPendientes(trabajosConNombres);
@@ -741,7 +758,7 @@ export default function Inventario({ user, perfil }) {
                                         )}
                                     </div>
                                     <div className="flex gap-2">
-                                        {trabajo.treatment_type === "corona_implante" && (
+                                        {trabajo.treatment_type === "corona_implante" && !trabajo.tieneAditamento && (
                                             <button
                                                 onClick={() => abrirModalAditamento(trabajo)}
                                                 className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 text-sm"
@@ -1096,7 +1113,7 @@ export default function Inventario({ user, perfil }) {
             {mostrarModalAditamento && trabajoParaAditamento && (
                 <ModalAditamento
                     trabajo={trabajoParaAditamento}
-                    items={items.filter(item => item.category === "other" || item.name.toLowerCase().includes("aditamiento"))}
+                    items={items.filter(item => item.category === "other" || item.name.toLowerCase().includes("aditamento"))}
                     onClose={() => {
                         setMostrarModalAditamento(false);
                         setTrabajoParaAditamento(null);
