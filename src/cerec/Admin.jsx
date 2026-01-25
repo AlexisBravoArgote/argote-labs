@@ -1,11 +1,10 @@
 ﻿import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../supabase";
-import { Link } from "react-router-dom";
 
 const TAGS_DISPONIBLES = ["E.MAX", "RECICLADO", "SIRONA"];
 const ITEMS_POR_PAGINA = 4;
 
-export default function Admin({ user }) {
+export default function Admin({ user, onVolver }) {
     const [items, setItems] = useState([]);
     const [error, setError] = useState("");
 
@@ -490,9 +489,9 @@ export default function Admin({ user }) {
         <div className="p-6 max-w-4xl mx-auto">
             <div className="flex items-center justify-between gap-3">
                 <h1 className="text-2xl font-bold">Panel admin</h1>
-                <Link className="border px-3 py-2 rounded" to="/cerec">
+                <button onClick={onVolver} className="border px-3 py-2 rounded">
                     Volver al inventario
-                </Link>
+                </button>
             </div>
 
             {error && <div className="text-red-600 mt-4">{error}</div>}
