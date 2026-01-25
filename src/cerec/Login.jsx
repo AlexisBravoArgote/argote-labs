@@ -68,9 +68,9 @@ export default function Login() {
                     {/* Título */}
                     <div className="text-center mb-8">
                         <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">
-                            CEREC
+                            STAFF
                         </h1>
-                        <p className="text-gray-600 text-sm">Odontología Digital</p>
+                        <p className="text-gray-600 text-sm">Odontología de vanguardia</p>
                         <div className="mt-4 flex items-center justify-center gap-2">
                             <div className="h-px w-12 bg-gradient-to-r from-transparent to-blue-400"></div>
                             <div className="w-2 h-2 rounded-full bg-blue-500"></div>
@@ -173,7 +173,7 @@ export default function Login() {
                     {/* Footer decorativo */}
                     <div className="mt-8 pt-6 border-t border-gray-200">
                         <p className="text-center text-xs text-gray-500">
-                            Sistema de gestión de inventario digital
+                            Login al portal
                         </p>
                     </div>
                 </div>
