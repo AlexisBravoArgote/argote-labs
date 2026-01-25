@@ -1906,6 +1906,22 @@ function ModalCalendario({ trabajos, cargando, onClose, obtenerNombreTratamiento
         return trabajosPorFecha.has(fechaKey);
     }
 
+    function todosFinalizados(dia) {
+        const fechaKey = obtenerFechaKey(dia);
+        const trabajosDelDia = trabajosPorFecha.get(fechaKey);
+        if (!trabajosDelDia || trabajosDelDia.length === 0) return false;
+        // Verificar que todos los trabajos estén finalizados
+        return trabajosDelDia.every(t => t.tipoFecha === "finalizado");
+    }
+
+    function tienePendientes(dia) {
+        const fechaKey = obtenerFechaKey(dia);
+        const trabajosDelDia = trabajosPorFecha.get(fechaKey);
+        if (!trabajosDelDia || trabajosDelDia.length === 0) return false;
+        // Verificar si hay al menos un trabajo pendiente
+        return trabajosDelDia.some(t => t.tipoFecha === "esperada");
+    }
+
     function seleccionarFecha(dia) {
         const fechaKey = obtenerFechaKey(dia);
         setFechaSeleccionada(fechaSeleccionada === fechaKey ? null : fechaKey);
@@ -1985,26 +2001,55 @@ function ModalCalendario({ trabajos, cargando, onClose, obtenerNombreTratamiento
                                     const tieneTrab = tieneTrabajos(dia);
                                     const esHoyDia = esHoy(dia);
                                     const estaSeleccionado = fechaSeleccionada === fechaKey;
+                                    const todosFin = todosFinalizados(dia);
+                                    const tienePend = tienePendientes(dia);
+                                    
+                                    // Determinar colores según el estado
+                                    let fondoClase = "";
+                                    let bordeClase = "";
+                                    let bolitaColor = "";
+                                    
+                                    if (esHoyDia) {
+                                        // Día de hoy: fondo azul siempre
+                                        fondoClase = "bg-blue-100 border-blue-500 font-bold";
+                                        // Bolita según estado
+                                        if (todosFin && tieneTrab) {
+                                            bolitaColor = "bg-green-500";
+                                        } else if (tienePend) {
+                                            bolitaColor = "bg-orange-500";
+                                        }
+                                    } else if (estaSeleccionado) {
+                                        fondoClase = "bg-blue-200 border-blue-600";
+                                        if (todosFin && tieneTrab) {
+                                            bolitaColor = "bg-green-500";
+                                        } else if (tienePend) {
+                                            bolitaColor = "bg-orange-500";
+                                        }
+                                    } else if (tieneTrab) {
+                                        if (todosFin) {
+                                            // Todos finalizados: verde
+                                            fondoClase = "bg-green-50 border-green-300 hover:bg-green-100";
+                                            bolitaColor = "bg-green-500";
+                                        } else {
+                                            // Hay pendientes: naranja
+                                            fondoClase = "bg-orange-50 border-orange-300 hover:bg-orange-100";
+                                            bolitaColor = "bg-orange-500";
+                                        }
+                                    } else {
+                                        fondoClase = "hover:bg-gray-50";
+                                    }
                                     
                                     return (
                                         <button
                                             key={dia}
                                             onClick={() => seleccionarFecha(dia)}
-                                            className={`aspect-square border rounded p-1 text-sm transition-colors ${
-                                                esHoyDia 
-                                                    ? "bg-blue-100 border-blue-500 font-bold" 
-                                                    : estaSeleccionado
-                                                        ? "bg-blue-200 border-blue-600"
-                                                        : tieneTrab
-                                                            ? "bg-orange-50 border-orange-300 hover:bg-orange-100"
-                                                            : "hover:bg-gray-50"
-                                            }`}
+                                            className={`aspect-square border rounded p-1 text-sm transition-colors ${fondoClase}`}
                                         >
                                             <div className="flex flex-col items-center justify-center h-full">
                                                 <span>{dia}</span>
-                                                {tieneTrab && (
+                                                {tieneTrab && bolitaColor && (
                                                     <span className="text-xs mt-1">
-                                                        <span className="inline-block w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
+                                                        <span className={`inline-block w-1.5 h-1.5 ${bolitaColor} rounded-full`}></span>
                                                     </span>
                                                 )}
                                             </div>
