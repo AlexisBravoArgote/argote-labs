@@ -316,7 +316,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         // Cargar trabajos en proceso
         const { data: pendientes, error: errPendientes } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, created_by, created_at, etapa, fecha_espera")
+            .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, created_by, created_at, etapa, fecha_espera, notas_doctor")
             .eq("status", "pending")
             .order("created_at", { ascending: false });
 
@@ -423,7 +423,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         // Cargar historial de trabajos
         const { data: historial, error: errHistorial } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera")
+            .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera, notas_doctor")
             .order("created_at", { ascending: false })
             .limit(50);
 
@@ -1214,6 +1214,12 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                         <div className="text-sm font-medium mt-1">
                                             Etapa: <span className="text-purple-600">{trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}</span>
                                         </div>
+                                        {trabajo.notas_doctor && (
+                                            <div className="mt-2 p-2 bg-blue-50 border-l-4 border-blue-500 rounded">
+                                                <div className="text-xs font-medium text-blue-800 mb-1">Notas del doctor:</div>
+                                                <div className="text-sm text-gray-700">{trabajo.notas_doctor}</div>
+                                            </div>
+                                        )}
                                         <div className="mt-2">
                                             <button
                                                 onClick={() => abrirModalReporte(trabajo)}

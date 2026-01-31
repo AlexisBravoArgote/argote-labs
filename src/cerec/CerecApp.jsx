@@ -3,6 +3,7 @@ import { supabase } from "../supabase";
 import Login from "./Login";
 import Inventario from "./Inventario";
 import Admin from "./Admin";
+import DoctorView from "./DoctorView";
 
 export default function CerecApp() {
     const [user, setUser] = useState(null);
@@ -141,6 +142,11 @@ export default function CerecApp() {
     // Si no hay usuario, mostrar login
     if (!user) {
         return <Login />;
+    }
+
+    // Si el usuario es doctor, mostrar vista de doctor
+    if (perfil?.role === "doctor") {
+        return <DoctorView user={user} perfil={perfil} />;
     }
 
     // Si hay usuario, mostrar inventario o admin según la vista
