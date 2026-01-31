@@ -42,9 +42,11 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
     const [mostrarModalFresar, setMostrarModalFresar] = useState(false);
     const [mostrarModalAditamento, setMostrarModalAditamento] = useState(false);
     const [mostrarModalReporte, setMostrarModalReporte] = useState(false);
+    const [mostrarModalAnillas, setMostrarModalAnillas] = useState(false);
     const [trabajoParaFresar, setTrabajoParaFresar] = useState(null);
     const [trabajoParaAditamento, setTrabajoParaAditamento] = useState(null);
     const [trabajoParaReporte, setTrabajoParaReporte] = useState(null);
+    const [trabajoParaAnillas, setTrabajoParaAnillas] = useState(null);
     const [trabajosPendientes, setTrabajosPendientes] = useState([]);
     const [historialTrabajos, setHistorialTrabajos] = useState([]);
     const [cargandoTrabajos, setCargandoTrabajos] = useState(false);
@@ -391,20 +393,26 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                             m.item_category === "other" || 
                             m.item_name.toLowerCase().includes("aditamento")
                         );
+                        // Verificar si ya tiene anillas (categoría "anillas")
+                        t.tieneAnillas = t.materiales.some(m => 
+                            m.item_category === "anillas"
+                        );
                         // Agregar reportes
                         t.reportes = reportesPorJob.get(t.id) || [];
                     });
                 } else {
-                    // Si no hay materiales, marcar que no tiene aditamento
+                    // Si no hay materiales, marcar que no tiene aditamento ni anillas
                     trabajosConNombres.forEach(t => {
                         t.tieneAditamento = false;
+                        t.tieneAnillas = false;
                         t.reportes = [];
                     });
                 }
             } else {
-                // Si no hay trabajos, marcar que no tienen aditamento
+                // Si no hay trabajos, marcar que no tienen aditamento ni anillas
                 trabajosConNombres.forEach(t => {
                     t.tieneAditamento = false;
+                    t.tieneAnillas = false;
                     t.reportes = [];
                 });
             }
@@ -851,6 +859,11 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         setMostrarModalAditamento(true);
     }
 
+    function abrirModalAnillas(trabajo) {
+        setTrabajoParaAnillas(trabajo);
+        setMostrarModalAnillas(true);
+    }
+
     function abrirModalReporte(trabajo) {
         setTrabajoParaReporte(trabajo);
         setMostrarModalReporte(true);
@@ -990,6 +1003,55 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
             }
 
             setTrabajoParaAditamento(null);
+            await cargar();
+        } catch (err) {
+            setError(`Error inesperado: ${err.message}`);
+        }
+    }
+
+    async function confirmarAnillas(materiales) {
+        if (!trabajoParaAnillas || !materiales || materiales.length === 0) {
+            setError("Debes seleccionar al menos una anilla.");
+            return;
+        }
+
+        setError("");
+        setMostrarModalAnillas(false);
+
+        try {
+            // 1. Crear registros de materiales del trabajo
+            const materialesInsert = materiales.map(m => ({
+                job_id: trabajoParaAnillas.id,
+                item_id: m.item_id,
+                quantity: m.quantity
+            }));
+
+            const { error: errMateriales } = await supabase
+                .from("job_materials")
+                .insert(materialesInsert);
+
+            if (errMateriales) {
+                setError(`Error al registrar materiales: ${errMateriales.message}`);
+                return;
+            }
+
+            // 2. Restar del inventario y crear movimientos
+            for (const material of materiales) {
+                const { error: errMovimiento } = await supabase
+                    .from("stock_movements")
+                    .insert({
+                        item_id: material.item_id,
+                        delta: -material.quantity,
+                        reason: `Anillas - Trabajo: ${trabajoParaAnillas.patient_name} - ${obtenerNombreTratamiento(trabajoParaAnillas)}`,
+                        created_by: user.id
+                    });
+
+                if (errMovimiento) {
+                    console.error(`Error al restar inventario para ${material.item_name}:`, errMovimiento);
+                }
+            }
+
+            setTrabajoParaAnillas(null);
             await cargar();
         } catch (err) {
             setError(`Error inesperado: ${err.message}`);
@@ -1195,6 +1257,14 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                                 className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 text-sm"
                                             >
                                                 Aditamento
+                                            </button>
+                                        )}
+                                        {trabajo.treatment_type === "guia_quirurgica" && trabajo.etapa === "diseño" && !trabajo.tieneAnillas && (
+                                            <button
+                                                onClick={() => abrirModalAnillas(trabajo)}
+                                                className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm"
+                                            >
+                                                Anillas
                                             </button>
                                         )}
                                         {necesitaFresado(trabajo) && trabajo.etapa === "diseño" && (
@@ -1562,6 +1632,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                     <option value="todas">Todas las categorías</option>
                     <option value="bloc">Bloques (CEREC)</option>
                     <option value="bur">Fresas</option>
+                    <option value="anillas">Anillas</option>
                     <option value="other">Otros</option>
                 </select>
                 <button onClick={cargar} className="border rounded p-2">
@@ -1606,7 +1677,9 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                             ? "Bloque"
                                             : it.category === "bur"
                                                 ? "Fresa"
-                                                : "Otro"}
+                                                : it.category === "anillas"
+                                                    ? "Anilla"
+                                                    : "Otro"}
                                     </div>
                                     {it.tags && it.tags.length > 0 && (
                                         <div className="flex gap-1 mt-1 flex-wrap">
@@ -1761,6 +1834,18 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                         setTrabajoParaReporte(null);
                     }}
                     onConfirm={confirmarReporte}
+                />
+            )}
+
+            {mostrarModalAnillas && trabajoParaAnillas && (
+                <ModalAnillas
+                    trabajo={trabajoParaAnillas}
+                    items={items.filter(item => item.category === "anillas")}
+                    onClose={() => {
+                        setMostrarModalAnillas(false);
+                        setTrabajoParaAnillas(null);
+                    }}
+                    onConfirm={confirmarAnillas}
                 />
             )}
 
@@ -2590,6 +2675,186 @@ function ModalFresar({ trabajo, items, onClose, onConfirm }) {
                         className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                     >
                         Confirmar fresado
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// Componente Modal para Anillas
+function ModalAnillas({ trabajo, items, onClose, onConfirm }) {
+    const [materialesSeleccionados, setMaterialesSeleccionados] = useState([]);
+    const [busqueda, setBusqueda] = useState("");
+    const [error, setError] = useState("");
+
+    const itemsFiltrados = items.filter(item => 
+        !busqueda.trim() || item.name.toLowerCase().includes(busqueda.trim().toLowerCase())
+    );
+
+    function agregarMaterial(item) {
+        const existente = materialesSeleccionados.find(m => m.item_id === item.id);
+        if (existente) {
+            setMaterialesSeleccionados(
+                materialesSeleccionados.map(m =>
+                    m.item_id === item.id
+                        ? { ...m, quantity: m.quantity + 1 }
+                        : m
+                )
+            );
+        } else {
+            setMaterialesSeleccionados([
+                ...materialesSeleccionados,
+                { item_id: item.id, item_name: item.name, quantity: 1 }
+            ]);
+        }
+    }
+
+    function quitarMaterial(itemId) {
+        setMaterialesSeleccionados(
+            materialesSeleccionados.filter(m => m.item_id !== itemId)
+        );
+    }
+
+    function ajustarCantidad(itemId, delta) {
+        setMaterialesSeleccionados(
+            materialesSeleccionados.map(m => {
+                if (m.item_id === itemId) {
+                    const nuevaCantidad = Math.max(0, m.quantity + delta);
+                    if (nuevaCantidad === 0) {
+                        return null;
+                    }
+                    return { ...m, quantity: nuevaCantidad };
+                }
+                return m;
+            }).filter(Boolean)
+        );
+    }
+
+    function validarYConfirmar() {
+        setError("");
+
+        if (materialesSeleccionados.length === 0) {
+            setError("Debes seleccionar al menos una anilla.");
+            return;
+        }
+
+        // Validar stock
+        for (const material of materialesSeleccionados) {
+            const item = items.find(i => i.id === material.item_id);
+            if (!item) {
+                setError(`El artículo ${material.item_name} no se encuentra disponible.`);
+                return;
+            }
+            if (item.current_qty < material.quantity) {
+                setError(`Stock insuficiente para ${material.item_name}. Disponible: ${item.current_qty}`);
+                return;
+            }
+        }
+
+        onConfirm(materialesSeleccionados);
+    }
+
+    return (
+        <div
+            className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+            onClick={onClose}
+        >
+            <div
+                className="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h3 className="text-xl font-bold mb-4">Anillas - {trabajo.patient_name}</h3>
+
+                {error && <div className="text-red-600 mb-4 text-sm">{error}</div>}
+
+                <div className="mb-4">
+                    <label className="text-sm font-medium block mb-2">
+                        Seleccionar anillas
+                    </label>
+                    <input
+                        type="text"
+                        value={busqueda}
+                        onChange={(e) => setBusqueda(e.target.value)}
+                        placeholder="Buscar anillas..."
+                        className="border rounded p-2 w-full mb-3"
+                    />
+
+                    <div className="border rounded p-3 space-y-2 max-h-60 overflow-y-auto">
+                        {itemsFiltrados.length === 0 ? (
+                            <p className="text-sm text-gray-500">No hay anillas disponibles.</p>
+                        ) : (
+                            itemsFiltrados.map(item => {
+                                const materialSeleccionado = materialesSeleccionados.find(m => m.item_id === item.id);
+                                
+                                return (
+                                    <div key={item.id} className="flex items-center justify-between p-2 border rounded">
+                                        <div className="flex-1">
+                                            <div className="font-medium text-sm">{item.name}</div>
+                                            <div className="text-xs text-gray-600">
+                                                Stock: {item.current_qty} {item.unit}
+                                            </div>
+                                        </div>
+                                        {materialSeleccionado ? (
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => ajustarCantidad(item.id, -1)}
+                                                    className="w-6 h-6 rounded border flex items-center justify-center"
+                                                >
+                                                    -
+                                                </button>
+                                                <span className="w-8 text-center text-sm">{materialSeleccionado.quantity}</span>
+                                                <button
+                                                    onClick={() => ajustarCantidad(item.id, 1)}
+                                                    disabled={item.current_qty <= materialSeleccionado.quantity}
+                                                    className="w-6 h-6 rounded border flex items-center justify-center disabled:opacity-50"
+                                                >
+                                                    +
+                                                </button>
+                                                <button
+                                                    onClick={() => quitarMaterial(item.id)}
+                                                    className="text-red-600 text-xs ml-2"
+                                                >
+                                                    Quitar
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => agregarMaterial(item)}
+                                                className="text-sm border px-2 py-1 rounded hover:bg-gray-50"
+                                            >
+                                                Agregar
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+
+                    {materialesSeleccionados.length > 0 && (
+                        <div className="mt-3 p-3 bg-gray-50 rounded">
+                            <div className="text-sm font-medium mb-2">Anillas seleccionadas:</div>
+                            <div className="space-y-1">
+                                {materialesSeleccionados.map(m => (
+                                    <div key={m.item_id} className="text-sm">
+                                        {m.item_name} × {m.quantity}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex justify-end gap-2 mt-6">
+                    <button onClick={onClose} className="border px-4 py-2 rounded hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={validarYConfirmar}
+                        className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
+                    >
+                        Confirmar anillas
                     </button>
                 </div>
             </div>

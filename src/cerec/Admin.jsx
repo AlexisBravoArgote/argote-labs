@@ -510,6 +510,7 @@ export default function Admin({ user, onVolver }) {
                         <select className="border rounded p-2 w-full mt-1" value={category} onChange={(e) => setCategory(e.target.value)}>
                             <option value="bloc">Bloques (CEREC)</option>
                             <option value="bur">Fresas</option>
+                            <option value="anillas">Anillas</option>
                             <option value="other">Otros</option>
                         </select>
                     </label>
@@ -590,6 +591,7 @@ export default function Admin({ user, onVolver }) {
                                                 >
                                                     <option value="bloc">Bloques (CEREC)</option>
                                                     <option value="bur">Fresas</option>
+                                                    <option value="anillas">Anillas</option>
                                                     <option value="other">Otros</option>
                                                 </select>
                                             </label>
