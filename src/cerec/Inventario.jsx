@@ -161,12 +161,12 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         const q = busquedaTrabajos.trim().toLowerCase();
         if (q) {
             filtrados = filtrados.filter(t => 
-                t.patient_name?.toLowerCase().includes(q) ||
-                t.treatment_name?.toLowerCase().includes(q) ||
-                obtenerNombreTratamiento(t).toLowerCase().includes(q) ||
-                t.created_by_name?.toLowerCase().includes(q) ||
-                t.completed_by_name?.toLowerCase().includes(q)
-            );
+            t.patient_name?.toLowerCase().includes(q) ||
+            t.treatment_name?.toLowerCase().includes(q) ||
+            obtenerNombreTratamiento(t).toLowerCase().includes(q) ||
+            t.created_by_name?.toLowerCase().includes(q) ||
+            t.completed_by_name?.toLowerCase().includes(q)
+        );
         }
         
         // Filtro por tag (EXOCAD, CEREC)
@@ -333,8 +333,8 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
             const userMap = new Map((perfiles || []).map(p => [p.id, p.full_name || p.id]));
 
             const trabajosConNombres = (pendientes || []).map(t => ({
-                ...t,
-                created_by_name: userMap.get(t.created_by) || t.created_by
+                    ...t,
+                    created_by_name: userMap.get(t.created_by) || t.created_by
             }));
 
             // Cargar materiales fresados para trabajos en proceso
@@ -439,9 +439,9 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
             const userMap = new Map((perfiles || []).map(p => [p.id, p.full_name || p.id]));
 
             const historialConNombres = (historial || []).map(t => ({
-                ...t,
-                created_by_name: userMap.get(t.created_by) || t.created_by,
-                completed_by_name: t.completed_by ? (userMap.get(t.completed_by) || t.completed_by) : null
+                    ...t,
+                    created_by_name: userMap.get(t.created_by) || t.created_by,
+                    completed_by_name: t.completed_by ? (userMap.get(t.completed_by) || t.completed_by) : null
             }));
 
             // Cargar materiales fresados y reportes para historial
@@ -1126,7 +1126,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 <>
                     <div className="mt-3 flex gap-4 flex-wrap items-center">
                         <span className="text-sm font-medium">Filtrar por:</span>
-                        <button
+                                <button
                             onClick={() => {
                                 setFiltroTrabajosPendientes("todos");
                                 setPaginaTrabajosPendientes(1);
@@ -1138,8 +1138,8 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                             }`}
                         >
                             Todos ({contadoresTrabajosPendientes.todos})
-                        </button>
-                        <button
+                                </button>
+                            <button
                             onClick={() => {
                                 setFiltroTrabajosPendientes("exocad");
                                 setPaginaTrabajosPendientes(1);
@@ -1151,8 +1151,8 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                             }`}
                         >
                             EXOCAD ({contadoresTrabajosPendientes.exocad})
-                        </button>
-                        <button
+                            </button>
+                            <button
                             onClick={() => {
                                 setFiltroTrabajosPendientes("cerec");
                                 setPaginaTrabajosPendientes(1);
@@ -1164,8 +1164,8 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                             }`}
                         >
                             CEREC ({contadoresTrabajosPendientes.cerec})
-                        </button>
-                        <button
+                            </button>
+                <button
                             onClick={() => {
                                 setFiltroTrabajosPendientes("otro");
                                 setPaginaTrabajosPendientes(1);
@@ -1177,23 +1177,23 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                             }`}
                         >
                             Otro ({contadoresTrabajosPendientes.otro})
-                        </button>
-                    </div>
+                </button>
+            </div>
 
                     {trabajosPendientesFiltrados.length === 0 ? (
                         <div className="mt-3 text-gray-500 text-sm">No hay trabajos con ese filtro.</div>
-                    ) : (
+            ) : (
                         <>
-                            <div className="grid gap-2 mt-3">
+                <div className="grid gap-2 mt-3">
                         {trabajosPendientesPaginados.map((trabajo) => (
-                            <div key={trabajo.id} className="border rounded p-3">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="flex-1">
+                        <div key={trabajo.id} className="border rounded p-3">
+                            <div className="flex justify-between items-start mb-2">
+                                <div className="flex-1">
                                         <div className="flex items-center gap-2">
-                                            <div className="font-semibold">
-                                                {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
+                                    <div className="font-semibold">
+                                        {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
                                                 {trabajo.pieza && ` (Pieza: ${trabajo.pieza})`}
-                                            </div>
+                                    </div>
                                             <span className="text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded">
                                                 {obtenerTagTrabajo(trabajo)}
                                             </span>
@@ -1203,17 +1203,17 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                                 Doctor: {trabajo.doctor}
                                             </div>
                                         )}
-                                        <div className="text-sm text-gray-600">
-                                            Iniciado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
-                                        </div>
-                                        {trabajo.fecha_espera && (
-                                            <div className="text-sm text-blue-600 mt-1">
+                                    <div className="text-sm text-gray-600">
+                                        Iniciado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
+                                    </div>
+                                    {trabajo.fecha_espera && (
+                                        <div className="text-sm text-blue-600 mt-1">
                                                 Fecha esperada: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}
-                                            </div>
-                                        )}
-                                        <div className="text-sm font-medium mt-1">
-                                            Etapa: <span className="text-purple-600">{trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}</span>
                                         </div>
+                                    )}
+                                    <div className="text-sm font-medium mt-1">
+                                        Etapa: <span className="text-purple-600">{trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}</span>
+                                    </div>
                                         {trabajo.notas_doctor && (
                                             <div className="mt-2 p-2 bg-blue-50 border-l-4 border-blue-500 rounded">
                                                 <div className="text-xs font-medium text-blue-800 mb-1">Notas del doctor:</div>
@@ -1255,8 +1255,8 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                                 ))}
                                             </div>
                                         )}
-                                    </div>
-                                    <div className="flex gap-2">
+                                </div>
+                                <div className="flex gap-2">
                                         {trabajo.treatment_type === "corona_implante" && !trabajo.tieneAditamento && (
                                             <button
                                                 onClick={() => abrirModalAditamento(trabajo)}
@@ -1273,24 +1273,24 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                                 Anillas
                                             </button>
                                         )}
-                                        {necesitaFresado(trabajo) && trabajo.etapa === "diseño" && (
-                                            <button
-                                                onClick={() => abrirModalFresar(trabajo)}
-                                                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
-                                            >
-                                                Fresar
-                                            </button>
-                                        )}
+                                    {necesitaFresado(trabajo) && trabajo.etapa === "diseño" && (
                                         <button
-                                            onClick={() => finalizarTrabajo(trabajo.id)}
-                                            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm"
+                                            onClick={() => abrirModalFresar(trabajo)}
+                                            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
                                         >
-                                            Finalizar trabajo
+                                            Fresar
                                         </button>
-                                    </div>
+                                    )}
+                                    <button
+                                        onClick={() => finalizarTrabajo(trabajo.id)}
+                                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm"
+                                    >
+                                            Finalizar trabajo
+                                    </button>
                                 </div>
                             </div>
-                        ))}
+                        </div>
+                    ))}
                     </div>
                     {totalPaginasTrabajosPendientes > 1 && (
                         <div className="flex items-center justify-center gap-2 mt-4">
@@ -1311,7 +1311,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                             >
                                 Siguiente
                             </button>
-                        </div>
+                </div>
                     )}
                         </>
                     )}
@@ -1517,10 +1517,10 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                 {trabajosPaginados.map((trabajo) => (
                         <div key={trabajo.id} className="border rounded p-3">
                             <div className="flex items-center gap-2">
-                                <div className="font-semibold">
-                                    {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
+                            <div className="font-semibold">
+                                {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
                                     {trabajo.pieza && ` (Pieza: ${trabajo.pieza})`}
-                                </div>
+                            </div>
                                 <span className="text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded">
                                     {obtenerTagTrabajo(trabajo)}
                                 </span>

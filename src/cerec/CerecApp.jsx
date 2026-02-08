@@ -4,6 +4,7 @@ import Login from "./Login";
 import Inventario from "./Inventario";
 import Admin from "./Admin";
 import DoctorView from "./DoctorView";
+import LogisticaView from "./LogisticaView";
 
 export default function CerecApp() {
     const [user, setUser] = useState(null);
@@ -11,145 +12,101 @@ export default function CerecApp() {
     const [loading, setLoading] = useState(true);
     const [vista, setVista] = useState("inventario"); // "inventario" o "admin"
 
+    // Cargar perfil dado un usuario
+    async function cargarPerfil(u) {
+        if (!u) { setPerfil(null); return; }
+        try {
+            const { data: p, error } = await supabase
+                .from("profiles")
+                .select("id, full_name, role")
+                .eq("id", u.id)
+                .single();
+            setPerfil(error ? null : (p ?? null));
+        } catch {
+            setPerfil(null);
+        }
+    }
+
     useEffect(() => {
         let mounted = true;
+        let initialized = false;
 
-        // Cargar usuario inicial - más rápido, sin esperar perfil
+        // 1) Carga inicial: getSession() es instantáneo (lee de localStorage, no hace red)
         (async () => {
             try {
-                const { data, error } = await supabase.auth.getUser();
-                
+                const { data: { session } } = await supabase.auth.getSession();
                 if (!mounted) return;
 
-                if (error) {
-                    console.error("Error al obtener usuario:", error);
-                    setUser(null);
-                    setPerfil(null);
-                    setLoading(false);
-                    return;
-                }
-
-                const u = data.user ?? null;
+                const u = session?.user ?? null;
                 setUser(u);
-                setLoading(false); // Completar loading inmediatamente después de obtener usuario
-
-                // Cargar perfil en paralelo (no bloquea el loading)
-                if (u) {
-                    supabase
-                        .from("profiles")
-                        .select("id, full_name, role")
-                        .eq("id", u.id)
-                        .single()
-                        .then(({ data: p, error: profileError }) => {
-                            if (mounted) {
-                                if (profileError) {
-                                    console.error("Error al obtener perfil:", profileError);
-                                    setPerfil(null);
-                                } else {
-                                    setPerfil(p ?? null);
-                                }
-                            }
-                        })
-                        .catch((err) => {
-                            console.error("Excepción al obtener perfil:", err);
-                            if (mounted) {
-                                setPerfil(null);
-                            }
-                        });
-                } else {
-                    setPerfil(null);
-                }
+                await cargarPerfil(u);
             } catch (err) {
-                console.error("Error inesperado al cargar:", err);
+                console.error("Error al cargar sesión:", err);
+                if (mounted) { setUser(null); setPerfil(null); }
+            } finally {
                 if (mounted) {
-                    setUser(null);
-                    setPerfil(null);
+                    initialized = true;
                     setLoading(false);
                 }
             }
         })();
 
-        // Escuchar cambios de autenticación
+        // 2) Escuchar cambios de auth (login/logout) — ignora el evento inicial
         const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            if (!mounted) return;
+            if (!mounted || !initialized) return; // Ignorar el INITIAL_SESSION
 
             const u = session?.user ?? null;
             setUser(u);
-
-            if (u) {
-                supabase
-                    .from("profiles")
-                    .select("id, full_name, role")
-                    .eq("id", u.id)
-                    .single()
-                    .then(({ data: p, error: profileError }) => {
-                        if (mounted) {
-                            if (profileError) {
-                                console.error("Error al obtener perfil en cambio de estado:", profileError);
-                                setPerfil(null);
-                            } else {
-                                setPerfil(p ?? null);
-                            }
-                        }
-                    })
-                    .catch((err) => {
-                        console.error("Excepción al obtener perfil en cambio de estado:", err);
-                        if (mounted) {
-                            setPerfil(null);
-                        }
-                    });
-            } else {
-                setPerfil(null);
-            }
+            setLoading(true); // Mostrar loading mientras carga perfil
+            await cargarPerfil(u);
+            if (mounted) setLoading(false);
         });
 
-        // Cerrar sesión cuando se cierra la pestaña/navegador
-        // Usar pagehide que es más confiable que beforeunload
-        const handlePageHide = () => {
-            // Cerrar sesión cuando la página se oculta (cierre de pestaña/navegador)
-            // Usar navigator.sendBeacon si está disponible para mayor confiabilidad
-            if (navigator.sendBeacon) {
-                // Intentar cerrar sesión de forma síncrona
-                supabase.auth.signOut().catch(() => {});
-            } else {
-                // Fallback: cerrar sesión normalmente
-                supabase.auth.signOut().catch(() => {});
-            }
-        };
+        // 3) Cerrar sesión al cerrar pestaña/navegador
+        const handlePageHide = () => { supabase.auth.signOut().catch(() => {}); };
+        const handleBeforeUnload = () => { supabase.auth.signOut().catch(() => {}); };
 
-        // También usar beforeunload como respaldo
-        const handleBeforeUnload = () => {
-            // Intentar cerrar sesión (puede no completarse si el navegador cierra muy rápido)
-            supabase.auth.signOut().catch(() => {});
-        };
-
-        // Agregar listeners
-        window.addEventListener('pagehide', handlePageHide);
-        window.addEventListener('beforeunload', handleBeforeUnload);
+        window.addEventListener("pagehide", handlePageHide);
+        window.addEventListener("beforeunload", handleBeforeUnload);
 
         return () => {
             mounted = false;
-            window.removeEventListener('pagehide', handlePageHide);
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-            if (sub?.subscription) {
-                sub.subscription.unsubscribe();
-            }
+            window.removeEventListener("pagehide", handlePageHide);
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+            if (sub?.subscription) sub.subscription.unsubscribe();
         };
     }, []);
 
-    if (loading) return <div style={{ padding: 24 }}>Cargando…</div>;
+    // ─── Pantalla de carga profesional ─────────────────────────────
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 relative overflow-hidden">
+                <div className="absolute inset-0 overflow-hidden">
+                    <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
+                    <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl"></div>
+                </div>
+                <div className="relative z-10 text-center">
+                    <div className="relative w-16 h-16 mx-auto mb-6">
+                        <div className="absolute inset-0 border-4 border-white/10 rounded-full"></div>
+                        <div className="absolute inset-0 border-4 border-transparent border-t-cyan-400 rounded-full animate-spin"></div>
+                        <div className="absolute inset-2 border-4 border-transparent border-t-blue-400 rounded-full animate-spin" style={{ animationDuration: "1.5s", animationDirection: "reverse" }}></div>
+                    </div>
+                    <p className="text-white/60 text-sm font-medium tracking-wide">Cargando portal...</p>
+                </div>
+            </div>
+        );
+    }
 
     // Si no hay usuario, mostrar login
-    if (!user) {
-        return <Login />;
-    }
+    if (!user) return <Login />;
+
+    // Si el usuario es de logística, mostrar vista de logística
+    if (perfil?.role === "logistica") return <LogisticaView user={user} perfil={perfil} />;
 
     // Si el usuario es doctor, mostrar vista de doctor
-    if (perfil?.role === "doctor") {
-        return <DoctorView user={user} perfil={perfil} />;
-    }
+    if (perfil?.role === "doctor") return <DoctorView user={user} perfil={perfil} />;
 
-    // Si hay usuario, mostrar inventario o admin según la vista
+    // Si hay usuario (admin/staff), mostrar inventario o admin según la vista
     if (vista === "admin" && perfil?.role === "admin") {
         return <Admin user={user} onVolver={() => setVista("inventario")} />;
     }
