@@ -1020,7 +1020,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                         .insert({
                             name: recycledName,
                             category: material.item_category || "bloc",
-                            unit: "pzas",
+                            unit: "mitades",
                             current_qty: 0,
                             tags: ["RECICLADO"],
                             created_by: user.id

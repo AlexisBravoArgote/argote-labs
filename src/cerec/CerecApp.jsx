@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../supabase";
 import Login from "./Login";
 import Inventario from "./Inventario";
@@ -92,6 +92,7 @@ export default function CerecApp() {
                         <div className="absolute inset-2 border-4 border-transparent border-t-blue-400 rounded-full animate-spin" style={{ animationDuration: "1.5s", animationDirection: "reverse" }}></div>
                     </div>
                     <p className="text-white/60 text-sm font-medium tracking-wide">Cargando portal...</p>
+                    <p className="text-white/30 text-xs mt-2">Si el portal no carga después de 5 segundos, favor de refrescar la página.</p>
                 </div>
             </div>
         );
