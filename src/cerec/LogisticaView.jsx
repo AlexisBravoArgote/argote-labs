@@ -384,7 +384,19 @@ export default function LogisticaView({ user, perfil }) {
         }
     }
 
-    useEffect(() => { cargarDatos(); }, []);
+    useEffect(() => {
+        cargarDatos();
+
+        // Realtime: auto-refresh when logistics data changes
+        const channel = supabase
+            .channel('logistica-realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'logistics_items' }, () => cargarDatos())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'logistics_movements' }, () => cargarDatos())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'logistics_categories' }, () => cargarDatos())
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, []);
 
     // ─── Datos derivados ───────────────────────────────────────────
     const itemsFiltrados = useMemo(() => {

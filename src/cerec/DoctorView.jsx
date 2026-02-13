@@ -112,6 +112,14 @@ export default function DoctorView({ user, perfil }) {
 
     useEffect(() => {
         cargarTrabajos();
+
+        // Realtime: auto-refresh when jobs change
+        const channel = supabase
+            .channel('doctor-realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => cargarTrabajos())
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
     }, [user]);
 
     async function enviarTrabajo(datosTrabajo) {

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
 import MovimientoModal from "./MovimientoModal";
 import NuevoTrabajoModal from "./NuevoTrabajoModal";
@@ -669,6 +669,17 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
 
     useEffect(() => {
         cargar();
+
+        // Realtime: auto-refresh when inventory data changes
+        const channel = supabase
+            .channel('inventario-realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => cargar())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, () => cargar())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => cargar())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'job_materials' }, () => cargar())
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 

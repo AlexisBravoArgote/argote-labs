@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../supabase";
 
 const TAGS_DISPONIBLES = ["E.MAX", "RECICLADO", "SIRONA"];
@@ -134,6 +134,17 @@ export default function Admin({ user, onVolver }) {
         cargarMovimientos();
         cargarTrabajos();
         cargarReportes();
+
+        // Realtime: auto-refresh when data changes
+        const channel = supabase
+            .channel('admin-realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => cargarItems())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, () => { cargarItems(); cargarMovimientos(); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => cargarTrabajos())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'job_materials' }, () => cargarTrabajos())
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
     }, []);
 
     async function cargarMovimientos() {
