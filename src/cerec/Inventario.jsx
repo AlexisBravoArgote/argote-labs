@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
 import MovimientoModal from "./MovimientoModal";
 import NuevoTrabajoModal from "./NuevoTrabajoModal";
+import DentalCityLogo from "../assets/DentalCity.png";
 
 export default function Inventario({ user, perfil, onIrAdmin }) {
     const [items, setItems] = useState([]);
@@ -56,6 +57,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
     const [mostrarModalCalendario, setMostrarModalCalendario] = useState(false);
     const [trabajosCalendario, setTrabajosCalendario] = useState([]);
     const [cargandoCalendario, setCargandoCalendario] = useState(false);
+    const [seccion, setSeccion] = useState("trabajos");
 
     // Función para obtener nombre de tratamiento (debe estar antes de los useMemo)
     function obtenerNombreTratamiento(trabajo) {
@@ -1070,376 +1072,334 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
     }
 
     return (
-        <div className="p-6 max-w-6xl mx-auto">
-            <div className="flex items-center justify-between gap-3">
-                <div>
-                    <h1 className="text-2xl font-bold">CEREC</h1>
-                    <div className="text-sm text-gray-600">
-                        {perfil?.full_name ?? "Usuario"} ·{" "}
-                        {perfil?.role === "admin" ? "Administrador" : "Personal"}
+        <div className="min-h-screen bg-gray-50">
+            {/* ─── Sticky Navbar ──────────────────────────────────── */}
+            <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6">
+                    <div className="flex items-center justify-between h-16">
+                        {/* Left: Logo + brand */}
+                        <div className="flex items-center gap-3">
+                            <img src={DentalCityLogo} alt="Dental City" className="h-9 w-9 rounded-xl object-contain" />
+                            <div className="hidden sm:block">
+                                <span className="text-lg font-bold text-gray-800">Inventario CEREC</span>
+                                <div className="text-xs text-gray-500">{perfil?.full_name ?? "Usuario"} · {perfil?.role === "admin" ? "Admin" : "Staff"}</div>
+                            </div>
+                        </div>
+
+                        {/* Center: Tab navigation (desktop) */}
+                        <div className="hidden md:flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+                            {[
+                                { v: "trabajos", label: "Trabajos", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" },
+                                { v: "inventario", label: "Inventario", icon: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" },
+                                { v: "historial", label: "Historial", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
+                                { v: "reportes", label: "Reportes", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" },
+                            ].map(tab => (
+                                <button key={tab.v} onClick={() => setSeccion(tab.v)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${seccion === tab.v ? "bg-white text-blue-700 shadow-sm" : "text-gray-600 hover:text-gray-800"}`}>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
+                                    </svg>
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Right: Action buttons */}
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={async () => { setMostrarModalCalendario(true); await cargarTrabajosCalendario(); }}
+                                className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+                                title="Calendario"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                            </button>
+                            {perfil?.role === "admin" && (
+                                <button onClick={onIrAdmin}
+                                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
+                                    title="Panel de administración"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </button>
+                            )}
+                            <button onClick={logout}
+                                className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                                title="Cerrar sesión"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={async () => {
-                            setMostrarModalCalendario(true);
-                            await cargarTrabajosCalendario();
-                        }}
-                        className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
-                        title="Ver calendario de trabajos"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                    </button>
-                    {perfil?.role === "admin" && (
-                        <button
-                            onClick={onIrAdmin}
-                            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
-                            title="Panel de administración"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
+                {/* Mobile tabs */}
+                <div className="md:hidden border-t border-gray-100 flex">
+                    {[
+                        { v: "trabajos", label: "Trabajos" },
+                        { v: "inventario", label: "Inventario" },
+                        { v: "historial", label: "Historial" },
+                        { v: "reportes", label: "Reportes" },
+                    ].map(tab => (
+                        <button key={tab.v} onClick={() => setSeccion(tab.v)}
+                            className={`flex-1 py-3 text-xs font-medium text-center transition-colors ${seccion === tab.v ? "text-blue-700 border-b-2 border-blue-600 bg-blue-50/50" : "text-gray-500"}`}>
+                            {tab.label}
                         </button>
-                    )}
-                    <button 
-                        onClick={logout} 
-                        className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
-                        title="Cerrar sesión"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                    </button>
+                    ))}
                 </div>
-            </div>
+            </nav>
 
-            {error && <div className="text-red-600 mt-4">{error}</div>}
+            {/* ─── Main Content ───────────────────────────────────── */}
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+                {error && (
+                    <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
+                        <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+                        <span className="text-sm flex-1">{error}</span>
+                        <button onClick={() => setError("")} className="text-red-500 hover:text-red-700">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+                )}
 
-            <div className="flex items-center justify-between mt-6">
-                <h2 className="text-lg font-semibold">Trabajos en proceso</h2>
-                <button
-                    onClick={() => setMostrarModalTrabajo(true)}
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-                >
-                    Empezar trabajo
-                </button>
-            </div>
+            {/* ─── TAB: TRABAJOS ─────────────────────────────── */}
+                {seccion === "trabajos" && (
+                <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-800">Trabajos en proceso</h2>
+                            <p className="text-sm text-gray-500">{trabajosPendientes.length} trabajo{trabajosPendientes.length !== 1 ? "s" : ""} activo{trabajosPendientes.length !== 1 ? "s" : ""}</p>
+                        </div>
+                        <button
+                            onClick={() => setMostrarModalTrabajo(true)}
+                            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl font-medium hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md shadow-blue-500/20 flex items-center gap-2"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                            Empezar trabajo
+                        </button>
+                    </div>
 
             {cargandoTrabajos ? (
-                <div className="mt-3 text-gray-600">Cargando trabajos…</div>
+                <div className="text-center py-12">
+                    <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
+                    <p className="text-gray-500 text-sm">Cargando trabajos...</p>
+                </div>
             ) : trabajosPendientes.length === 0 ? (
-                <div className="mt-3 text-gray-500 text-sm">No hay trabajos en proceso.</div>
+                <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
+                    <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                    <p className="text-gray-500 text-lg mb-1">No hay trabajos en proceso</p>
+                    <p className="text-gray-400 text-sm">Empieza un nuevo trabajo para verlo aquí</p>
+                </div>
             ) : (
                 <>
-                    <div className="mt-3 flex gap-4 flex-wrap items-center">
-                        <span className="text-sm font-medium">Filtrar por:</span>
-                                <button
-                            onClick={() => {
-                                setFiltroTrabajosPendientes("todos");
-                                setPaginaTrabajosPendientes(1);
-                            }}
-                            className={`px-3 py-1 rounded text-sm ${
-                                filtroTrabajosPendientes === "todos"
-                                    ? "bg-blue-600 text-white"
-                                    : "border hover:bg-gray-50"
-                            }`}
-                        >
-                            Todos ({contadoresTrabajosPendientes.todos})
-                                </button>
-                            <button
-                            onClick={() => {
-                                setFiltroTrabajosPendientes("exocad");
-                                setPaginaTrabajosPendientes(1);
-                            }}
-                            className={`px-3 py-1 rounded text-sm ${
-                                filtroTrabajosPendientes === "exocad"
-                                    ? "bg-blue-600 text-white"
-                                    : "border hover:bg-gray-50"
-                            }`}
-                        >
-                            EXOCAD ({contadoresTrabajosPendientes.exocad})
+                    {/* Filter pills */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-wrap gap-2 items-center">
+                        <span className="text-sm font-medium text-gray-600 mr-2">Filtrar:</span>
+                        {[
+                            { v: "todos", label: "Todos", count: contadoresTrabajosPendientes.todos, color: "blue" },
+                            { v: "exocad", label: "EXOCAD", count: contadoresTrabajosPendientes.exocad, color: "orange" },
+                            { v: "cerec", label: "CEREC", count: contadoresTrabajosPendientes.cerec, color: "blue" },
+                            { v: "otro", label: "Otro", count: contadoresTrabajosPendientes.otro, color: "gray" },
+                        ].map(f => (
+                            <button key={f.v}
+                                onClick={() => { setFiltroTrabajosPendientes(f.v); setPaginaTrabajosPendientes(1); }}
+                                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
+                                    filtroTrabajosPendientes === f.v
+                                        ? "bg-blue-600 text-white shadow-sm"
+                                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                }`}
+                            >
+                                {f.label}
+                                <span className={`text-xs px-1.5 py-0.5 rounded-lg ${filtroTrabajosPendientes === f.v ? "bg-white/20" : "bg-gray-200"}`}>{f.count}</span>
                             </button>
-                            <button
-                            onClick={() => {
-                                setFiltroTrabajosPendientes("cerec");
-                                setPaginaTrabajosPendientes(1);
-                            }}
-                            className={`px-3 py-1 rounded text-sm ${
-                                filtroTrabajosPendientes === "cerec"
-                                    ? "bg-blue-600 text-white"
-                                    : "border hover:bg-gray-50"
-                            }`}
-                        >
-                            CEREC ({contadoresTrabajosPendientes.cerec})
-                            </button>
-                <button
-                            onClick={() => {
-                                setFiltroTrabajosPendientes("otro");
-                                setPaginaTrabajosPendientes(1);
-                            }}
-                            className={`px-3 py-1 rounded text-sm ${
-                                filtroTrabajosPendientes === "otro"
-                                    ? "bg-blue-600 text-white"
-                                    : "border hover:bg-gray-50"
-                            }`}
-                        >
-                            Otro ({contadoresTrabajosPendientes.otro})
-                </button>
-            </div>
+                        ))}
+                    </div>
 
                     {trabajosPendientesFiltrados.length === 0 ? (
-                        <div className="mt-3 text-gray-500 text-sm">No hay trabajos con ese filtro.</div>
+                        <div className="text-center py-8 bg-white rounded-2xl border border-gray-200">
+                            <p className="text-gray-500 text-sm">No hay trabajos con ese filtro.</p>
+                        </div>
             ) : (
                         <>
-                <div className="grid gap-2 mt-3">
-                        {trabajosPendientesPaginados.map((trabajo) => (
-                        <div key={trabajo.id} className="border rounded p-3">
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="flex-1">
-                                        <div className="flex items-center gap-2">
-                                    <div className="font-semibold">
-                                        {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
-                                                {trabajo.pieza && ` (Pieza: ${trabajo.pieza})`}
-                                    </div>
-                                            <span className="text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded">
-                                                {obtenerTagTrabajo(trabajo)}
+                <div className="grid gap-3">
+                        {trabajosPendientesPaginados.map((trabajo) => {
+                            const tag = obtenerTagTrabajo(trabajo);
+                            const tagColors = tag === "EXOCAD" ? "bg-orange-100 text-orange-700" : tag === "CEREC" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700";
+                            return (
+                        <div key={trabajo.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-all">
+                            <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${tagColors}`}>{tag}</span>
+                                        <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${trabajo.etapa === "fresado" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
+                                            {trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}
+                                        </span>
+                                        {trabajo.reportes && trabajo.reportes.length > 0 && trabajo.reportes.map((tipo, idx) => (
+                                            <span key={idx} className={`text-xs font-medium px-2.5 py-1 rounded-lg ${tipo === "error" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                                                {tipo === "error" ? "ERROR" : "FALLA"}
                                             </span>
+                                        ))}
+                                    </div>
+                                    <h3 className="text-lg font-bold text-gray-800 leading-tight">
+                                        {obtenerNombreTratamiento(trabajo)} — {trabajo.patient_name}
+                                        {trabajo.pieza && <span className="text-gray-500 font-normal text-base"> (Pieza: {trabajo.pieza})</span>}
+                                    </h3>
+                                    {trabajo.doctor && (
+                                        <div className="text-sm text-gray-600 mt-1 flex items-center gap-1">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                            Dr. {trabajo.doctor}
                                         </div>
-                                        {trabajo.doctor && (
-                                            <div className="text-sm text-gray-600 mt-1">
-                                                Doctor: {trabajo.doctor}
-                                            </div>
-                                        )}
-                                    <div className="text-sm text-gray-600">
+                                    )}
+                                    <div className="text-xs text-gray-500 mt-1">
                                         Iniciado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
                                     </div>
                                     {trabajo.fecha_espera && (
-                                        <div className="text-sm text-blue-600 mt-1">
-                                                Fecha esperada: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}
+                                        <div className="text-xs text-blue-600 font-medium mt-1">
+                                            Fecha esperada: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}
                                         </div>
                                     )}
-                                    <div className="text-sm font-medium mt-1">
-                                        Etapa: <span className="text-purple-600">{trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}</span>
-                                    </div>
-                                        {trabajo.notas_doctor && (
-                                            <div className="mt-2 p-2 bg-blue-50 border-l-4 border-blue-500 rounded">
-                                                <div className="text-xs font-medium text-blue-800 mb-1">Notas del doctor:</div>
-                                                <div className="text-sm text-gray-700">{trabajo.notas_doctor}</div>
-                                            </div>
-                                        )}
-                                        <div className="mt-2">
-                                            <button
-                                                onClick={() => abrirModalReporte(trabajo)}
-                                                className="text-orange-600 hover:text-orange-700 text-sm underline"
-                                            >
-                                                Reportar
-                                            </button>
+                                    {trabajo.notas_doctor && (
+                                        <div className="mt-3 p-3 bg-blue-50 border-l-4 border-blue-400 rounded-r-xl">
+                                            <div className="text-xs font-semibold text-blue-800 mb-0.5">Notas del doctor:</div>
+                                            <div className="text-sm text-gray-700">{trabajo.notas_doctor}</div>
                                         </div>
-                                        {trabajo.materiales && trabajo.materiales.length > 0 && (
-                                            <div className="text-sm mt-2">
-                                                <span className="font-medium">Materiales utilizados:</span>{" "}
-                                                {trabajo.materiales.map((m, idx) => (
-                                                    <span key={idx}>
-                                                        {m.item_name} ({m.quantity})
-                                                        {idx < trabajo.materiales.length - 1 ? ", " : ""}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {trabajo.reportes && trabajo.reportes.length > 0 && (
-                                            <div className="flex gap-1 mt-2 flex-wrap">
-                                                {trabajo.reportes.map((tipo, idx) => (
-                                                    <span 
-                                                        key={idx}
-                                                        className={`text-xs px-2 py-1 rounded ${
-                                                            tipo === "error" 
-                                                                ? "bg-red-100 text-red-800" 
-                                                                : "bg-red-100 text-red-800"
-                                                        }`}
-                                                    >
-                                                        {tipo === "error" ? "ERROR" : "FALLA"}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
+                                    )}
+                                    {trabajo.materiales && trabajo.materiales.length > 0 && (
+                                        <div className="text-sm mt-2 text-gray-600">
+                                            <span className="font-medium">Materiales:</span>{" "}
+                                            {trabajo.materiales.map((m, idx) => (
+                                                <span key={idx} className="inline-flex items-center">
+                                                    <span className="bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded-lg mr-1">{m.item_name} ({m.quantity})</span>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex gap-2">
-                                        {trabajo.treatment_type === "corona_implante" && !trabajo.tieneAditamento && (
-                                            <button
-                                                onClick={() => abrirModalAditamento(trabajo)}
-                                                className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 text-sm"
-                                            >
-                                                Aditamento
-                                            </button>
-                                        )}
-                                        {trabajo.treatment_type === "guia_quirurgica" && trabajo.etapa === "diseño" && !trabajo.tieneAnillas && (
-                                            <button
-                                                onClick={() => abrirModalAnillas(trabajo)}
-                                                className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm"
-                                            >
-                                                Anillas
-                                            </button>
-                                        )}
+                                <div className="flex flex-wrap gap-2 shrink-0">
+                                    <button onClick={() => abrirModalReporte(trabajo)}
+                                        className="px-4 py-2 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-xl text-sm font-medium transition-colors border border-orange-200">
+                                        Reportar
+                                    </button>
+                                    {trabajo.treatment_type === "corona_implante" && !trabajo.tieneAditamento && (
+                                        <button onClick={() => abrirModalAditamento(trabajo)}
+                                            className="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 text-sm font-medium transition-colors shadow-sm">
+                                            Aditamento
+                                        </button>
+                                    )}
+                                    {trabajo.treatment_type === "guia_quirurgica" && trabajo.etapa === "diseño" && !trabajo.tieneAnillas && (
+                                        <button onClick={() => abrirModalAnillas(trabajo)}
+                                            className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 text-sm font-medium transition-colors shadow-sm">
+                                            Anillas
+                                        </button>
+                                    )}
                                     {necesitaFresado(trabajo) && trabajo.etapa === "diseño" && (
-                                        <button
-                                            onClick={() => abrirModalFresar(trabajo)}
-                                            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
-                                        >
+                                        <button onClick={() => abrirModalFresar(trabajo)}
+                                            className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm font-medium transition-colors shadow-sm">
                                             Fresar
                                         </button>
                                     )}
-                                    <button
-                                        onClick={() => finalizarTrabajo(trabajo.id)}
-                                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm"
-                                    >
-                                            Finalizar trabajo
+                                    <button onClick={() => finalizarTrabajo(trabajo.id)}
+                                        className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 text-sm font-medium transition-all shadow-sm">
+                                        Finalizar
                                     </button>
                                 </div>
                             </div>
                         </div>
-                    ))}
+                            );
+                        })}
                     </div>
                     {totalPaginasTrabajosPendientes > 1 && (
-                        <div className="flex items-center justify-center gap-2 mt-4">
-                            <button
-                                onClick={() => setPaginaTrabajosPendientes(p => Math.max(1, p - 1))}
+                        <div className="flex items-center justify-center gap-3 mt-4">
+                            <button onClick={() => setPaginaTrabajosPendientes(p => Math.max(1, p - 1))}
                                 disabled={paginaTrabajosPendientes === 1}
-                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
+                                className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                                 Anterior
                             </button>
                             <span className="text-sm text-gray-600">
-                                Página {paginaTrabajosPendientes} de {totalPaginasTrabajosPendientes} ({trabajosPendientesFiltrados.length} trabajos)
+                                {paginaTrabajosPendientes} / {totalPaginasTrabajosPendientes}
                             </span>
-                            <button
-                                onClick={() => setPaginaTrabajosPendientes(p => Math.min(totalPaginasTrabajosPendientes, p + 1))}
+                            <button onClick={() => setPaginaTrabajosPendientes(p => Math.min(totalPaginasTrabajosPendientes, p + 1))}
                                 disabled={paginaTrabajosPendientes === totalPaginasTrabajosPendientes}
-                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
+                                className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                                 Siguiente
                             </button>
-                </div>
+                        </div>
                     )}
                         </>
                     )}
                 </>
             )}
-
-            <div className="flex items-center justify-between mt-10">
-                <h2 className="text-lg font-semibold">Historial de trabajos</h2>
-                <div className="flex items-center gap-2">
-                    {(() => {
-                        const filtrosActivos = [
-                            filtroTagHistorial,
-                            filtroFinalizadoPor,
-                            filtroDoctorHistorial,
-                            filtroFechaDesde,
-                            filtroFechaHasta,
-                            filtroTratamientoHistorial
-                        ].filter(f => f !== "").length;
-                        
-                        if (filtrosActivos > 0) {
-                            return (
-                                <span className="text-sm text-orange-600 font-medium bg-orange-50 px-2 py-1 rounded border border-orange-200">
-                                    {filtrosActivos} filtro{filtrosActivos > 1 ? "s" : ""} activo{filtrosActivos > 1 ? "s" : ""}
-                                </span>
-                            );
-                        }
-                        return null;
-                    })()}
-                    <button
-                        onClick={() => setMostrarFiltrosHistorial(!mostrarFiltrosHistorial)}
-                        className="border rounded px-3 py-1 text-sm hover:bg-gray-50"
-                    >
-                        {mostrarFiltrosHistorial ? "Ocultar filtros" : "Mostrar filtros"}
-                    </button>
                 </div>
-            </div>
+                )}
+
+                {/* ─── TAB: HISTORIAL ────────────────────────────── */}
+                {seccion === "historial" && (
+                <div className="space-y-6">
+                    {/* ── Historial de trabajos ─────── */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-800">Historial de trabajos</h2>
+                            <p className="text-sm text-gray-500">{historialTrabajos.length} registro{historialTrabajos.length !== 1 ? "s" : ""}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {(() => {
+                                const filtrosActivos = [filtroTagHistorial, filtroFinalizadoPor, filtroDoctorHistorial, filtroFechaDesde, filtroFechaHasta, filtroTratamientoHistorial].filter(f => f !== "").length;
+                                if (filtrosActivos > 0) {
+                                    return (
+                                        <span className="text-xs text-orange-700 font-medium bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200">
+                                            {filtrosActivos} filtro{filtrosActivos > 1 ? "s" : ""}
+                                        </span>
+                                    );
+                                }
+                                return null;
+                            })()}
+                            <button onClick={() => setMostrarFiltrosHistorial(!mostrarFiltrosHistorial)}
+                                className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                                {mostrarFiltrosHistorial ? "Ocultar filtros" : "Filtros"}
+                            </button>
+                        </div>
+                    </div>
 
             {mostrarFiltrosHistorial && (
-                <div className="mt-3 p-4 border rounded bg-gray-50 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Filtro por tag */}
+                <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div>
-                            <label className="text-sm font-medium block mb-2">Filtrar por tag:</label>
+                            <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-2">Tag</label>
                             <div className="flex gap-2">
-                                <button
-                                    onClick={() => {
-                                        setFiltroTagHistorial(filtroTagHistorial === "exocad" ? "" : "exocad");
-                                        setPaginaTrabajos(1);
-                                    }}
-                                    className={`px-3 py-1 rounded text-sm border ${filtroTagHistorial === "exocad" ? "bg-blue-100 border-blue-500" : ""}`}
-                                >
-                                    EXOCAD
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setFiltroTagHistorial(filtroTagHistorial === "cerec" ? "" : "cerec");
-                                        setPaginaTrabajos(1);
-                                    }}
-                                    className={`px-3 py-1 rounded text-sm border ${filtroTagHistorial === "cerec" ? "bg-blue-100 border-blue-500" : ""}`}
-                                >
-                                    CEREC
-                                </button>
+                                {[{v:"exocad",l:"EXOCAD"},{v:"cerec",l:"CEREC"}].map(t=>(
+                                    <button key={t.v} onClick={() => { setFiltroTagHistorial(filtroTagHistorial === t.v ? "" : t.v); setPaginaTrabajos(1); }}
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${filtroTagHistorial === t.v ? "bg-blue-100 border-blue-400 text-blue-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}>
+                                        {t.l}
+                                    </button>
+                                ))}
                             </div>
                         </div>
-
-                        {/* Filtro por finalizado por */}
                         <div>
-                            <label className="text-sm font-medium block mb-2">Finalizado por:</label>
-                            <select
-                                value={filtroFinalizadoPor}
-                                onChange={(e) => {
-                                    setFiltroFinalizadoPor(e.target.value);
-                                    setPaginaTrabajos(1);
-                                }}
-                                className="border rounded p-2 w-full text-sm"
-                            >
+                            <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-2">Finalizado por</label>
+                            <select value={filtroFinalizadoPor} onChange={(e) => { setFiltroFinalizadoPor(e.target.value); setPaginaTrabajos(1); }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white">
                                 <option value="">Todos</option>
-                                {usuariosFinalizadores.map(usuario => (
-                                    <option key={usuario} value={usuario}>
-                                        {usuario}
-                                    </option>
-                                ))}
+                                {usuariosFinalizadores.map(u => <option key={u} value={u}>{u}</option>)}
                             </select>
                         </div>
-
-                        {/* Filtro por doctor */}
                         <div>
-                            <label className="text-sm font-medium block mb-2">Filtrar por doctor:</label>
-                            <select
-                                value={filtroDoctorHistorial}
-                                onChange={(e) => {
-                                    setFiltroDoctorHistorial(e.target.value);
-                                    setPaginaTrabajos(1);
-                                }}
-                                className="border rounded p-2 w-full text-sm"
-                            >
+                            <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-2">Doctor</label>
+                            <select value={filtroDoctorHistorial} onChange={(e) => { setFiltroDoctorHistorial(e.target.value); setPaginaTrabajos(1); }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white">
                                 <option value="">Todos los doctores</option>
-                                {DOCTORES.filter(d => d !== "Otro").map(doctor => (
-                                    <option key={doctor} value={doctor}>
-                                        {doctor}
-                                    </option>
-                                ))}
+                                {DOCTORES.filter(d => d !== "Otro").map(d => <option key={d} value={d}>{d}</option>)}
                             </select>
                         </div>
-
-                        {/* Filtro por tratamiento */}
                         <div>
-                            <label className="text-sm font-medium block mb-2">Filtrar por tratamiento:</label>
-                            <select
-                                value={filtroTratamientoHistorial}
-                                onChange={(e) => {
-                                    setFiltroTratamientoHistorial(e.target.value);
-                                    setPaginaTrabajos(1);
-                                }}
-                                className="border rounded p-2 w-full text-sm"
-                            >
-                                <option value="">Todos los tratamientos</option>
+                            <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-2">Tratamiento</label>
+                            <select value={filtroTratamientoHistorial} onChange={(e) => { setFiltroTratamientoHistorial(e.target.value); setPaginaTrabajos(1); }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white">
+                                <option value="">Todos</option>
                                 <option value="carillas">Carillas</option>
                                 <option value="corona_implante">Corona sobre implante</option>
                                 <option value="coronas">Coronas</option>
@@ -1452,171 +1412,108 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                 <option value="rehabilitacion_completa">Rehabilitación completa</option>
                             </select>
                         </div>
-
-                        {/* Filtro por fecha desde */}
                         <div>
-                            <label className="text-sm font-medium block mb-2">Desde:</label>
-                            <input
-                                type="date"
-                                value={filtroFechaDesde}
-                                onChange={(e) => {
-                                    setFiltroFechaDesde(e.target.value);
-                                    setPaginaTrabajos(1);
-                                }}
-                                className="border rounded p-2 w-full text-sm"
-                            />
+                            <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-2">Desde</label>
+                            <input type="date" value={filtroFechaDesde} onChange={(e) => { setFiltroFechaDesde(e.target.value); setPaginaTrabajos(1); }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
                         </div>
-
-                        {/* Filtro por fecha hasta */}
                         <div>
-                            <label className="text-sm font-medium block mb-2">Hasta:</label>
-                            <input
-                                type="date"
-                                value={filtroFechaHasta}
-                                onChange={(e) => {
-                                    setFiltroFechaHasta(e.target.value);
-                                    setPaginaTrabajos(1);
-                                }}
-                                className="border rounded p-2 w-full text-sm"
-                            />
+                            <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-2">Hasta</label>
+                            <input type="date" value={filtroFechaHasta} onChange={(e) => { setFiltroFechaHasta(e.target.value); setPaginaTrabajos(1); }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
                         </div>
                     </div>
-
-                    {/* Botón para limpiar filtros */}
                     <div className="flex justify-end">
-                        <button
-                            onClick={() => {
-                                setFiltroTagHistorial("");
-                                setFiltroFinalizadoPor("");
-                                setFiltroDoctorHistorial("");
-                                setFiltroFechaDesde("");
-                                setFiltroFechaHasta("");
-                                setFiltroTratamientoHistorial("");
-                                setPaginaTrabajos(1);
-                            }}
-                            className="text-sm text-gray-600 hover:text-gray-800 underline"
-                        >
-                            Limpiar todos los filtros
+                        <button onClick={() => { setFiltroTagHistorial(""); setFiltroFinalizadoPor(""); setFiltroDoctorHistorial(""); setFiltroFechaDesde(""); setFiltroFechaHasta(""); setFiltroTratamientoHistorial(""); setPaginaTrabajos(1); }}
+                            className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline">
+                            Limpiar filtros
                         </button>
                     </div>
                 </div>
             )}
 
             {cargandoTrabajos ? (
-                <div className="mt-3 text-gray-600">Cargando…</div>
+                <div className="text-center py-8"><div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div></div>
             ) : historialTrabajos.length === 0 ? (
-                <div className="mt-3 text-gray-500 text-sm">No hay trabajos en el historial.</div>
+                <div className="text-center py-8 bg-white rounded-2xl border border-gray-200"><p className="text-gray-500 text-sm">No hay trabajos en el historial.</p></div>
             ) : (
                 <>
-                    <div className="mt-3 mb-3">
+                    <div className="relative">
+                        <svg className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                         <input
                             type="text"
                             value={busquedaTrabajos}
                             onChange={(e) => {
                                 setBusquedaTrabajos(e.target.value);
-                                setPaginaTrabajos(1); // Resetear a página 1 al buscar
+                                setPaginaTrabajos(1);
                             }}
                             placeholder="Buscar en historial de trabajos..."
-                            className="border rounded p-2 w-full"
+                            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white"
                         />
                     </div>
                     {trabajosFiltrados.length === 0 ? (
-                        <div className="mt-3 text-gray-500 text-sm">No se encontraron trabajos con esa búsqueda.</div>
+                        <div className="text-center py-8 bg-white rounded-2xl border border-gray-200"><p className="text-gray-500 text-sm">No se encontraron trabajos.</p></div>
                     ) : (
                         <>
-                            <div className="grid gap-2 mt-3">
-                                {trabajosPaginados.map((trabajo) => (
-                        <div key={trabajo.id} className="border rounded p-3">
-                            <div className="flex items-center gap-2">
-                            <div className="font-semibold">
-                                {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
-                                    {trabajo.pieza && ` (Pieza: ${trabajo.pieza})`}
-                            </div>
-                                <span className="text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded">
-                                    {obtenerTagTrabajo(trabajo)}
+                            <div className="grid gap-3">
+                                {trabajosPaginados.map((trabajo) => {
+                                    const tag = obtenerTagTrabajo(trabajo);
+                                    const tagColors = tag === "EXOCAD" ? "bg-orange-100 text-orange-700" : tag === "CEREC" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700";
+                                    return (
+                        <div key={trabajo.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-all">
+                            <div className="flex items-center gap-2 flex-wrap mb-2">
+                                <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${tagColors}`}>{tag}</span>
+                                <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${trabajo.status === "completed" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}>
+                                    {trabajo.status === "completed" ? "Finalizado" : "Pendiente"}
                                 </span>
-                            </div>
-                            {trabajo.doctor && (
-                                <div className="text-sm text-gray-600 mt-1">
-                                    Doctor: {trabajo.doctor}
-                                </div>
-                            )}
-                            <div className="text-sm text-gray-600">
-                                {trabajo.status === "completed" ? (
-                                    <>
-                                        <span className="text-green-600 font-medium">Finalizado</span> ·{" "}
-                                        Finalizado por {trabajo.completed_by_name} ·{" "}
-                                        {new Date(trabajo.completed_at).toLocaleString("es-MX")} ·{" "}
-                                        Iniciado: {new Date(trabajo.created_at).toLocaleString("es-MX")} por {trabajo.created_by_name}
-                                    </>
-                                ) : (
-                                    <>
-                                        <span className="text-orange-600 font-medium">Pendiente</span> ·{" "}
-                                        Iniciado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
-                                    </>
-                                )}
-                                {trabajo.fecha_espera && (
-                                    <> · <span className="text-blue-600">Esperado: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}</span></>
-                                )}
                                 {trabajo.etapa && trabajo.status !== "completed" && (
-                                    <> · <span className="text-purple-600">Etapa: {trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}</span></>
+                                    <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${trabajo.etapa === "fresado" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
+                                        {trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}
+                                    </span>
                                 )}
+                                {trabajo.reportes && trabajo.reportes.map((tipo, idx) => (
+                                    <span key={idx} className={`text-xs font-medium px-2.5 py-1 rounded-lg ${tipo === "error" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                                        {tipo === "error" ? "ERROR" : "FALLA"}
+                                    </span>
+                                ))}
+                            </div>
+                            <h3 className="font-bold text-gray-800">
+                                {obtenerNombreTratamiento(trabajo)} — {trabajo.patient_name}
+                                {trabajo.pieza && <span className="text-gray-500 font-normal"> (Pieza: {trabajo.pieza})</span>}
+                            </h3>
+                            {trabajo.doctor && <div className="text-sm text-gray-600 mt-0.5">Dr. {trabajo.doctor}</div>}
+                            <div className="text-xs text-gray-500 mt-1">
+                                {trabajo.status === "completed" ? (
+                                    <>Finalizado por {trabajo.completed_by_name} · {new Date(trabajo.completed_at).toLocaleString("es-MX")} · Creado: {new Date(trabajo.created_at).toLocaleString("es-MX")}</>
+                                ) : (
+                                    <>Creado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}</>
+                                )}
+                                {trabajo.fecha_espera && <> · <span className="text-blue-600 font-medium">Esperado: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}</span></>}
                             </div>
                             {trabajo.materiales && trabajo.materiales.length > 0 && (
-                                <div className="text-sm mt-2">
-                                    <span className="font-medium">Materiales utilizados:</span>{" "}
+                                <div className="flex flex-wrap gap-1 mt-2">
                                     {trabajo.materiales.map((m, idx) => (
-                                        <span key={idx}>
-                                            {m.item_name} ({m.quantity})
-                                            {idx < trabajo.materiales.length - 1 ? ", " : ""}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-                            {trabajo.reportes && trabajo.reportes.length > 0 && (
-                                <div className="flex gap-1 mt-2 flex-wrap">
-                                    {trabajo.reportes.map((tipo, idx) => (
-                                        <span 
-                                            key={idx}
-                                            className={`text-xs px-2 py-1 rounded ${
-                                                tipo === "error" 
-                                                    ? "bg-red-100 text-red-800" 
-                                                    : "bg-red-100 text-red-800"
-                                            }`}
-                                        >
-                                            {tipo === "error" ? "ERROR" : "FALLA"}
-                                        </span>
+                                        <span key={idx} className="bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded-lg">{m.item_name} ({m.quantity})</span>
                                     ))}
                                 </div>
                             )}
                             <div className="mt-2">
-                                <button
-                                    onClick={() => abrirModalReporte(trabajo)}
-                                    className="text-orange-600 hover:text-orange-700 text-sm underline"
-                                >
-                                    Reportar
-                                </button>
+                                <button onClick={() => abrirModalReporte(trabajo)}
+                                    className="text-xs text-orange-600 hover:text-orange-700 font-medium hover:underline">Reportar</button>
                             </div>
                         </div>
-                    ))}
+                                    );
+                                })}
                             </div>
                             {totalPaginasTrabajos > 1 && (
-                                <div className="flex items-center justify-center gap-2 mt-4">
-                                    <button
-                                        onClick={() => setPaginaTrabajos(p => Math.max(1, p - 1))}
-                                        disabled={paginaTrabajos === 1}
-                                        className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
+                                <div className="flex items-center justify-center gap-3 mt-4">
+                                    <button onClick={() => setPaginaTrabajos(p => Math.max(1, p - 1))} disabled={paginaTrabajos === 1}
+                                        className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                                         Anterior
                                     </button>
-                                    <span className="text-sm text-gray-600">
-                                        Página {paginaTrabajos} de {totalPaginasTrabajos} ({trabajosFiltrados.length} trabajos)
-                                    </span>
-                                    <button
-                                        onClick={() => setPaginaTrabajos(p => Math.min(totalPaginasTrabajos, p + 1))}
-                                        disabled={paginaTrabajos === totalPaginasTrabajos}
-                                        className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
+                                    <span className="text-sm text-gray-600">{paginaTrabajos} / {totalPaginasTrabajos}</span>
+                                    <button onClick={() => setPaginaTrabajos(p => Math.min(totalPaginasTrabajos, p + 1))} disabled={paginaTrabajos === totalPaginasTrabajos}
+                                        className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                                         Siguiente
                                     </button>
                                 </div>
@@ -1625,183 +1522,164 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                     )}
                 </>
             )}
+                </div>
+                )}
 
-            <h2 className="text-lg font-semibold mt-10">Artículos</h2>
+                {/* ─── TAB: INVENTARIO ───────────────────────────── */}
+                {seccion === "inventario" && (
+                <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-800">Inventario</h2>
+                            <p className="text-sm text-gray-500">{itemsFiltrados.length} artículo{itemsFiltrados.length !== 1 ? "s" : ""}</p>
+                        </div>
+                        <button onClick={cargar}
+                            className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                            Actualizar
+                        </button>
+                    </div>
 
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                <input
-                    value={busqueda}
-                    onChange={(e) => {
-                        setBusqueda(e.target.value);
-                        setPaginaItems(1); // Resetear a página 1 al buscar
-                    }}
-                    placeholder="Buscar artículo…"
-                    className="border rounded p-2"
-                />
-                <select
-                    value={categoria}
-                    onChange={(e) => {
-                        setCategoria(e.target.value);
-                        setPaginaItems(1); // Resetear a página 1 al cambiar categoría
-                    }}
-                    className="border rounded p-2"
-                >
-                    <option value="todas">Todas las categorías</option>
-                    <option value="bloc">Bloques (CEREC)</option>
-                    <option value="bur">Fresas</option>
-                    <option value="anillas">Anillas</option>
-                    <option value="other">Otros</option>
-                </select>
-                <button onClick={cargar} className="border rounded p-2">
-                    Actualizar
-                </button>
-            </div>
+                    {/* Search + filters */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-col sm:flex-row gap-3">
+                        <div className="relative flex-1">
+                            <svg className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                            <input value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPaginaItems(1); }}
+                                placeholder="Buscar artículo..."
+                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
+                        </div>
+                        <select value={categoria} onChange={(e) => { setCategoria(e.target.value); setPaginaItems(1); }}
+                            className="px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white text-sm">
+                            <option value="todas">Todas las categorías</option>
+                            <option value="bloc">Bloques (CEREC)</option>
+                            <option value="bur">Fresas</option>
+                            <option value="anillas">Anillas</option>
+                            <option value="other">Otros</option>
+                        </select>
+                    </div>
 
-            <div className="mt-3 flex gap-4 flex-wrap items-center">
-                <span className="text-sm font-medium">Tags:</span>
-                {TAGS_DISPONIBLES.map(tag => (
-                    <label key={tag} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={tagsFiltrados.includes(tag)}
-                            onChange={(e) => {
-                                if (e.target.checked) {
-                                    setTagsFiltrados([...tagsFiltrados, tag]);
-                                } else {
-                                    setTagsFiltrados(tagsFiltrados.filter(t => t !== tag));
-                                }
-                                setPaginaItems(1); // Resetear a página 1 al cambiar tags
-                            }}
-                            className="w-4 h-4"
-                        />
-                        <span className="text-sm">{tag}</span>
-                    </label>
-                ))}
-            </div>
+                    {/* Tag filter pills */}
+                    <div className="flex gap-2 flex-wrap items-center">
+                        <span className="text-sm font-medium text-gray-600">Tags:</span>
+                        {TAGS_DISPONIBLES.map(tag => (
+                            <button key={tag}
+                                onClick={() => {
+                                    if (tagsFiltrados.includes(tag)) { setTagsFiltrados(tagsFiltrados.filter(t => t !== tag)); }
+                                    else { setTagsFiltrados([...tagsFiltrados, tag]); }
+                                    setPaginaItems(1);
+                                }}
+                                className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${tagsFiltrados.includes(tag) ? "bg-blue-600 text-white" : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"}`}>
+                                {tag}
+                            </button>
+                        ))}
+                    </div>
 
             {cargando ? (
-                <div className="mt-3 text-gray-600">Cargando…</div>
+                <div className="text-center py-12"><div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div><p className="text-gray-500 text-sm">Cargando inventario...</p></div>
             ) : (
                 <>
-                    <div className="grid gap-2 mt-3">
-                        {itemsPaginados.map((it) => (
-                            <div key={it.id} className="border rounded p-3 flex justify-between gap-3">
-                                <div className="flex-1">
-                                    <div className="font-semibold">{it.name}</div>
-                                    <div className="text-sm text-gray-600">
-                                        Stock: <b>{it.current_qty}</b> {it.unit} ·{" "}
-                                        {it.category === "bloc"
-                                            ? "Bloque"
-                                            : it.category === "bur"
-                                                ? "Fresa"
-                                                : it.category === "anillas"
-                                                    ? "Anilla"
-                                                    : "Otro"}
-                                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        {itemsPaginados.map((it) => {
+                            const catLabel = it.category === "bloc" ? "Bloque" : it.category === "bur" ? "Fresa" : it.category === "anillas" ? "Anilla" : "Otro";
+                            const catColor = it.category === "bloc" ? "bg-blue-100 text-blue-700" : it.category === "bur" ? "bg-amber-100 text-amber-700" : it.category === "anillas" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-700";
+                            return (
+                            <div key={it.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-all group">
+                                <div className="flex items-start justify-between mb-3">
+                                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${catColor}`}>{catLabel}</span>
                                     {it.tags && it.tags.length > 0 && (
-                                        <div className="flex gap-1 mt-1 flex-wrap">
+                                        <div className="flex gap-1">
                                             {it.tags.map(tag => (
-                                                <span 
-                                                    key={tag} 
-                                                    className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded"
-                                                >
-                                                    {tag}
-                                                </span>
+                                                <span key={tag} className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-lg font-medium">{tag}</span>
                                             ))}
                                         </div>
                                     )}
                                 </div>
-
-                                <button
-                                    onClick={() => setModalItem(it)}
-                                    className="bg-black text-white px-3 py-2 rounded"
-                                >
+                                <h3 className="text-lg font-bold text-gray-800 mb-1">{it.name}</h3>
+                                <div className="flex items-end justify-between mb-2">
+                                    <span className="text-2xl font-bold text-gray-800">{it.current_qty}</span>
+                                    <span className="text-xs text-gray-500">{it.unit}</span>
+                                </div>
+                                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mb-3">
+                                    <div className={`h-full rounded-full transition-all ${it.current_qty === 0 ? "bg-red-500" : it.current_qty <= 3 ? "bg-amber-500" : "bg-blue-500"}`}
+                                        style={{ width: `${Math.min(100, (it.current_qty / 20) * 100)}%` }} />
+                                </div>
+                                <button onClick={() => setModalItem(it)}
+                                    className="w-full px-4 py-2.5 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-xl font-medium hover:from-gray-900 hover:to-black transition-all text-sm">
                                     Agregar / Retirar
                                 </button>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                     {totalPaginasItems > 1 && (
-                        <div className="flex items-center justify-center gap-2 mt-4">
-                            <button
-                                onClick={() => setPaginaItems(p => Math.max(1, p - 1))}
-                                disabled={paginaItems === 1}
-                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
+                        <div className="flex items-center justify-center gap-3 mt-4">
+                            <button onClick={() => setPaginaItems(p => Math.max(1, p - 1))} disabled={paginaItems === 1}
+                                className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                                 Anterior
                             </button>
-                            <span className="text-sm text-gray-600">
-                                Página {paginaItems} de {totalPaginasItems} ({itemsFiltrados.length} artículos)
-                            </span>
-                            <button
-                                onClick={() => setPaginaItems(p => Math.min(totalPaginasItems, p + 1))}
-                                disabled={paginaItems === totalPaginasItems}
-                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
+                            <span className="text-sm text-gray-600">{paginaItems} / {totalPaginasItems}</span>
+                            <button onClick={() => setPaginaItems(p => Math.min(totalPaginasItems, p + 1))} disabled={paginaItems === totalPaginasItems}
+                                className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                                 Siguiente
                             </button>
                         </div>
                     )}
                 </>
             )}
+                </div>
+                )}
 
-            <div className="flex items-center justify-between mt-10">
-                <h2 className="text-lg font-semibold">Historial global</h2>
-            </div>
-
-            <div className="mt-3 mb-3">
-                <input
-                    type="text"
-                    value={busquedaHistorial}
-                    onChange={(e) => {
-                        setBusquedaHistorial(e.target.value);
-                        setPaginaMovs(1); // Resetear a página 1 al buscar
-                    }}
-                    placeholder="Buscar en historial global..."
-                    className="border rounded p-2 w-full"
-                />
-            </div>
+                {seccion === "historial" && (
+                <div className="space-y-4">
+                    {/* ── Historial global ──────────── */}
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-800 mb-4">Historial global de movimientos</h3>
+                        <div className="relative mb-4">
+                            <svg className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                            <input type="text" value={busquedaHistorial}
+                                onChange={(e) => { setBusquedaHistorial(e.target.value); setPaginaMovs(1); }}
+                                placeholder="Buscar en historial global..."
+                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white" />
+                        </div>
 
             {movsFiltrados.length === 0 ? (
-                <div className="mt-3 text-gray-500 text-sm">No se encontraron movimientos con esa búsqueda.</div>
+                <div className="text-center py-8 bg-white rounded-2xl border border-gray-200"><p className="text-gray-500 text-sm">No se encontraron movimientos.</p></div>
             ) : (
                 <>
-                    <div className="grid gap-2 mt-3">
+                    <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-50">
                         {movsPaginados.map((m) => (
-                            <div key={m.id} className="border rounded p-3">
-                                <div className="font-semibold">
-                                    {m.delta > 0 ? `+${m.delta}` : m.delta} · {m.item_name}
+                            <div key={m.id} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50/50 transition-colors">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm ${m.delta > 0 ? "bg-green-500" : "bg-red-500"}`}>
+                                    {m.delta > 0 ? "+" : "−"}
                                 </div>
-                                <div className="text-sm text-gray-600">
-                                    {new Date(m.created_at).toLocaleString("es-MX")} · {m.user_name}
-                                    {m.reason ? ` · ${m.reason}` : ""}
+                                <div className="flex-1 min-w-0">
+                                    <div className="font-medium text-gray-800">{m.item_name}</div>
+                                    <div className="text-xs text-gray-500">{new Date(m.created_at).toLocaleString("es-MX")} · {m.user_name}{m.reason ? ` · ${m.reason}` : ""}</div>
+                                </div>
+                                <div className={`text-sm font-bold ${m.delta > 0 ? "text-green-600" : "text-red-600"}`}>
+                                    {m.delta > 0 ? `+${m.delta}` : m.delta}
                                 </div>
                             </div>
                         ))}
                     </div>
                     {totalPaginasMovs > 1 && (
-                        <div className="flex items-center justify-center gap-2 mt-4">
-                            <button
-                                onClick={() => setPaginaMovs(p => Math.max(1, p - 1))}
-                                disabled={paginaMovs === 1}
-                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
+                        <div className="flex items-center justify-center gap-3 mt-4">
+                            <button onClick={() => setPaginaMovs(p => Math.max(1, p - 1))} disabled={paginaMovs === 1}
+                                className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                                 Anterior
                             </button>
-                            <span className="text-sm text-gray-600">
-                                Página {paginaMovs} de {totalPaginasMovs} ({movsFiltrados.length} movimientos)
-                            </span>
-                            <button
-                                onClick={() => setPaginaMovs(p => Math.min(totalPaginasMovs, p + 1))}
-                                disabled={paginaMovs === totalPaginasMovs}
-                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
+                            <span className="text-sm text-gray-600">{paginaMovs} / {totalPaginasMovs}</span>
+                            <button onClick={() => setPaginaMovs(p => Math.min(totalPaginasMovs, p + 1))} disabled={paginaMovs === totalPaginasMovs}
+                                className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                                 Siguiente
                             </button>
                         </div>
                     )}
                 </>
             )}
+                    </div>
+                </div>
+                )}
 
             {modalItem && (
                 <MovimientoModal
@@ -1875,66 +1753,61 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 />
             )}
 
-            <h2 className="text-lg font-semibold mt-10">Historial de errores y fallas</h2>
-            <p className="text-sm text-gray-600 mt-1 mb-3">
-                Reportes de errores y fallas en los trabajos.
-            </p>
+                {/* ─── TAB: REPORTES ─────────────────────────────── */}
+                {seccion === "reportes" && (
+                <div className="space-y-4">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-800">Reportes de errores y fallas</h2>
+                        <p className="text-sm text-gray-500 mt-1">{reportes.length} reporte{reportes.length !== 1 ? "s" : ""} registrado{reportes.length !== 1 ? "s" : ""}</p>
+                    </div>
 
             {cargandoReportes ? (
-                <div className="text-gray-600 mt-3">Cargando reportes…</div>
+                <div className="text-center py-12"><div className="w-10 h-10 border-4 border-red-200 border-t-red-600 rounded-full animate-spin mx-auto mb-3"></div><p className="text-gray-500 text-sm">Cargando reportes...</p></div>
             ) : reportes.length === 0 ? (
-                <div className="text-gray-500 text-sm mt-3">No hay reportes.</div>
+                <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
+                    <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <p className="text-gray-500 text-lg mb-1">Sin reportes</p>
+                    <p className="text-gray-400 text-sm">No se han registrado errores ni fallas</p>
+                </div>
             ) : (
                 <>
-                    <div className="grid gap-2 mt-3">
+                    <div className="grid gap-3">
                         {reportes.slice((paginaReportes - 1) * itemsPorPagina, paginaReportes * itemsPorPagina).map((reporte) => (
-                            <div key={reporte.id} className="border rounded p-3">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className={`text-xs px-2 py-1 rounded font-medium ${
-                                        reporte.report_type === "error" 
-                                            ? "bg-red-100 text-red-800" 
-                                            : "bg-red-100 text-red-800"
-                                    }`}>
+                            <div key={reporte.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-all">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${reporte.report_type === "error" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
                                         {reporte.report_type === "error" ? "ERROR" : "FALLA"}
                                     </span>
                                     {reporte.job_info && (
-                                        <span className="text-sm font-medium">
-                                            {reporte.job_info.treatment_name} - {reporte.job_info.patient_name}
+                                        <span className="text-sm font-bold text-gray-800">
+                                            {reporte.job_info.treatment_name} — {reporte.job_info.patient_name}
                                         </span>
                                     )}
                                 </div>
-                                <div className="text-sm text-gray-700 mb-2">
-                                    {reporte.description}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                    Reportado por {reporte.reported_by_name} · {new Date(reporte.created_at).toLocaleString("es-MX")}
-                                </div>
+                                <div className="text-sm text-gray-700 mb-3 leading-relaxed">{reporte.description}</div>
+                                <div className="text-xs text-gray-500">Reportado por {reporte.reported_by_name} · {new Date(reporte.created_at).toLocaleString("es-MX")}</div>
                             </div>
                         ))}
                     </div>
                     {Math.ceil(reportes.length / itemsPorPagina) > 1 && (
-                        <div className="flex items-center justify-center gap-2 mt-4">
-                            <button
-                                onClick={() => setPaginaReportes(p => Math.max(1, p - 1))}
-                                disabled={paginaReportes === 1}
-                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
+                        <div className="flex items-center justify-center gap-3 mt-4">
+                            <button onClick={() => setPaginaReportes(p => Math.max(1, p - 1))} disabled={paginaReportes === 1}
+                                className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                                 Anterior
                             </button>
-                            <span className="text-sm text-gray-600">
-                                Página {paginaReportes} de {Math.ceil(reportes.length / itemsPorPagina)} ({reportes.length} reportes)
-                            </span>
-                            <button
-                                onClick={() => setPaginaReportes(p => Math.min(Math.ceil(reportes.length / itemsPorPagina), p + 1))}
-                                disabled={paginaReportes === Math.ceil(reportes.length / itemsPorPagina)}
-                                className="border rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
+                            <span className="text-sm text-gray-600">{paginaReportes} / {Math.ceil(reportes.length / itemsPorPagina)}</span>
+                            <button onClick={() => setPaginaReportes(p => Math.min(Math.ceil(reportes.length / itemsPorPagina), p + 1))} disabled={paginaReportes === Math.ceil(reportes.length / itemsPorPagina)}
+                                className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                                 Siguiente
                             </button>
                         </div>
                     )}
                 </>
             )}
+                </div>
+                )}
+
+            </main>
         </div>
     );
 }
