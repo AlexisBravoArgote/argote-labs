@@ -1078,11 +1078,11 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
                     <div className="flex items-center justify-between h-16">
                         {/* Left: Logo + brand */}
-                        <div className="flex items-center gap-3">
-                            <img src={DentalCityLogo} alt="Dental City" className="h-9 w-9 rounded-xl object-contain" />
-                            <div className="hidden sm:block">
-                                <span className="text-lg font-bold text-gray-800">Inventario CEREC</span>
-                                <div className="text-xs text-gray-500">{perfil?.full_name ?? "Usuario"} · {perfil?.role === "admin" ? "Admin" : "Staff"}</div>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                            <img src={DentalCityLogo} alt="Dental City" className="h-9 w-9 rounded-xl object-contain flex-shrink-0" />
+                            <div className="min-w-0">
+                                <div className="text-sm sm:text-lg font-bold text-gray-800 leading-tight truncate">Inventario CEREC</div>
+                                <div className="text-[10px] sm:text-xs text-gray-500 truncate">{perfil?.full_name ?? "Usuario"} · {perfil?.role === "admin" ? "Admin" : "Staff"}</div>
                             </div>
                         </div>
 
