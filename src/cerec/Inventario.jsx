@@ -320,7 +320,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         // Cargar trabajos en proceso
         const { data: pendientes, error: errPendientes } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, created_by, created_at, etapa, fecha_espera, notas_doctor")
+            .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, created_by, created_at, etapa, fecha_espera, notas_doctor, reciclado")
             .eq("status", "pending")
             .order("created_at", { ascending: false });
 
@@ -428,7 +428,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         // Cargar historial de trabajos
         const { data: historial, error: errHistorial } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera, notas_doctor")
+            .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera, notas_doctor, reciclado")
             .order("created_at", { ascending: false })
             .limit(50);
 
