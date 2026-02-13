@@ -48,6 +48,8 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
     const [trabajoParaAditamento, setTrabajoParaAditamento] = useState(null);
     const [trabajoParaReporte, setTrabajoParaReporte] = useState(null);
     const [trabajoParaAnillas, setTrabajoParaAnillas] = useState(null);
+    const [mostrarModalReciclar, setMostrarModalReciclar] = useState(false);
+    const [trabajoParaReciclar, setTrabajoParaReciclar] = useState(null);
     const [trabajosPendientes, setTrabajosPendientes] = useState([]);
     const [historialTrabajos, setHistorialTrabajos] = useState([]);
     const [cargandoTrabajos, setCargandoTrabajos] = useState(false);
@@ -370,6 +372,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                         }
                         const itemInfo = itemMap.get(m.item_id) || { name: m.item_id, category: null };
                         materialesPorJob.get(m.job_id).push({
+                            item_id: m.item_id,
                             item_name: itemInfo.name,
                             quantity: m.quantity,
                             item_category: itemInfo.category
@@ -476,6 +479,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                             materialesPorJob.set(m.job_id, []);
                         }
                         materialesPorJob.get(m.job_id).push({
+                            item_id: m.item_id,
                             item_name: itemMap.get(m.item_id) || m.item_id,
                             quantity: m.quantity
                         });
@@ -973,6 +977,98 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         }
     }
 
+    function abrirModalReciclar(trabajo) {
+        setTrabajoParaReciclar(trabajo);
+        setMostrarModalReciclar(true);
+    }
+
+    async function confirmarReciclado(materialesSeleccionados) {
+        if (!trabajoParaReciclar || !materialesSeleccionados || materialesSeleccionados.length === 0) {
+            setError("Debes seleccionar al menos un material para reciclar.");
+            return;
+        }
+
+        setError("");
+        setMostrarModalReciclar(false);
+
+        try {
+            for (const material of materialesSeleccionados) {
+                const recycledName = "RECICLADO " + material.item_name;
+
+                // Check if a recycled item already exists
+                const { data: existingItem, error: errBuscar } = await supabase
+                    .from("items")
+                    .select("id")
+                    .eq("name", recycledName)
+                    .maybeSingle();
+
+                if (errBuscar) {
+                    console.error(`Error buscando item reciclado "${recycledName}":`, errBuscar);
+                    setError(`Error al buscar item reciclado: ${errBuscar.message}`);
+                    return;
+                }
+
+                let recycledItemId;
+
+                if (existingItem) {
+                    // Item already exists, use its id
+                    recycledItemId = existingItem.id;
+                } else {
+                    // Create new recycled item
+                    const { data: newItem, error: errCrear } = await supabase
+                        .from("items")
+                        .insert({
+                            name: recycledName,
+                            category: material.item_category || "bloc",
+                            unit: "pzas",
+                            current_qty: 0,
+                            tags: ["RECICLADO"],
+                            created_by: user.id
+                        })
+                        .select("id")
+                        .single();
+
+                    if (errCrear) {
+                        console.error(`Error creando item reciclado "${recycledName}":`, errCrear);
+                        setError(`Error al crear item reciclado: ${errCrear.message}`);
+                        return;
+                    }
+
+                    recycledItemId = newItem.id;
+                }
+
+                // Create positive stock movement for recycled item
+                const { error: errMovimiento } = await supabase
+                    .from("stock_movements")
+                    .insert({
+                        item_id: recycledItemId,
+                        delta: material.quantity,
+                        reason: `Reciclado - Trabajo: ${trabajoParaReciclar.patient_name} - ${obtenerNombreTratamiento(trabajoParaReciclar)}`,
+                        created_by: user.id
+                    });
+
+                if (errMovimiento) {
+                    console.error(`Error al registrar movimiento de reciclado para ${recycledName}:`, errMovimiento);
+                }
+            }
+
+            // Mark job as recycled
+            const { error: errReciclar } = await supabase
+                .from("jobs")
+                .update({ reciclado: true })
+                .eq("id", trabajoParaReciclar.id);
+
+            if (errReciclar) {
+                setError(`Error al marcar trabajo como reciclado: ${errReciclar.message}`);
+            }
+
+            setTrabajoParaReciclar(null);
+            await cargar();
+        } catch (err) {
+            setError(`Error inesperado al reciclar: ${err.message}`);
+        }
+    }
+
     async function confirmarAditamento(materiales) {
         if (!trabajoParaAditamento || !materiales || materiales.length === 0) {
             setError("Debes seleccionar al menos un aditamento.");
@@ -1300,6 +1396,12 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                         <button onClick={() => abrirModalFresar(trabajo)}
                                             className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm font-medium transition-colors shadow-sm">
                                             Fresar
+                                        </button>
+                                    )}
+                                    {trabajo.etapa === "fresado" && !trabajo.reciclado && trabajo.materiales && trabajo.materiales.length > 0 && (
+                                        <button onClick={() => abrirModalReciclar(trabajo)}
+                                            className="px-4 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 text-sm font-medium transition-colors shadow-sm">
+                                            ♻️ Reciclar
                                         </button>
                                     )}
                                     <button onClick={() => finalizarTrabajo(trabajo.id)}
@@ -1806,6 +1908,18 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
             )}
                 </div>
                 )}
+
+            {mostrarModalReciclar && trabajoParaReciclar && (
+                <ModalReciclar
+                    trabajo={trabajoParaReciclar}
+                    onClose={() => {
+                        setMostrarModalReciclar(false);
+                        setTrabajoParaReciclar(null);
+                    }}
+                    onConfirm={confirmarReciclado}
+                    obtenerNombreTratamiento={obtenerNombreTratamiento}
+                />
+            )}
 
             </main>
         </div>
@@ -2745,6 +2859,134 @@ function ModalAnillas({ trabajo, items, onClose, onConfirm }) {
                         className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
                     >
                         Confirmar anillas
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// Componente Modal para Reciclar Materiales
+function ModalReciclar({ trabajo, onClose, onConfirm, obtenerNombreTratamiento }) {
+    const [seleccionados, setSeleccionados] = useState(
+        () => new Set()
+    );
+    const [confirmando, setConfirmando] = useState(false);
+
+    const materiales = trabajo.materiales || [];
+
+    function toggleMaterial(idx) {
+        setSeleccionados(prev => {
+            const next = new Set(prev);
+            if (next.has(idx)) {
+                next.delete(idx);
+            } else {
+                next.add(idx);
+            }
+            return next;
+        });
+    }
+
+    function seleccionarTodos() {
+        if (seleccionados.size === materiales.length) {
+            setSeleccionados(new Set());
+        } else {
+            setSeleccionados(new Set(materiales.map((_, i) => i)));
+        }
+    }
+
+    async function handleConfirmar() {
+        const materialesParaReciclar = materiales.filter((_, i) => seleccionados.has(i));
+        if (materialesParaReciclar.length === 0) return;
+        setConfirmando(true);
+        await onConfirm(materialesParaReciclar);
+        setConfirmando(false);
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in fade-in">
+                {/* Header */}
+                <div className="mb-5">
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="text-2xl">♻️</span>
+                        <h3 className="text-lg font-bold text-gray-800">Reciclar Materiales</h3>
+                    </div>
+                    <p className="text-sm text-gray-500">
+                        {trabajo.patient_name} &mdash; {obtenerNombreTratamiento(trabajo)}
+                    </p>
+                </div>
+
+                {/* Material list */}
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {materiales.length === 0 ? (
+                        <p className="text-sm text-gray-500 text-center py-4">Este trabajo no tiene materiales registrados.</p>
+                    ) : (
+                        <>
+                            {/* Select all */}
+                            <button
+                                onClick={seleccionarTodos}
+                                className="text-xs text-teal-600 hover:text-teal-800 font-medium mb-1 transition-colors"
+                            >
+                                {seleccionados.size === materiales.length ? "Deseleccionar todos" : "Seleccionar todos"}
+                            </button>
+
+                            {materiales.map((m, idx) => (
+                                <label
+                                    key={idx}
+                                    className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                                        seleccionados.has(idx)
+                                            ? "border-teal-400 bg-teal-50 shadow-sm"
+                                            : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                                    }`}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={seleccionados.has(idx)}
+                                        onChange={() => toggleMaterial(idx)}
+                                        className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="font-medium text-sm text-gray-800 truncate">{m.item_name}</div>
+                                        <div className="text-xs text-gray-500">
+                                            Cantidad: {m.quantity} &middot; Se creará: <span className="font-medium text-teal-700">RECICLADO {m.item_name}</span>
+                                        </div>
+                                    </div>
+                                </label>
+                            ))}
+                        </>
+                    )}
+                </div>
+
+                {/* Summary */}
+                {seleccionados.size > 0 && (
+                    <div className="mt-4 p-3 bg-teal-50 rounded-xl border border-teal-200">
+                        <div className="text-xs font-medium text-teal-800 mb-1">Resumen del reciclado:</div>
+                        <div className="space-y-0.5">
+                            {materiales.filter((_, i) => seleccionados.has(i)).map((m, idx) => (
+                                <div key={idx} className="text-xs text-teal-700">
+                                    RECICLADO {m.item_name} &times; {m.quantity}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Footer buttons */}
+                <div className="flex justify-end gap-2 mt-6">
+                    <button
+                        onClick={onClose}
+                        disabled={confirmando}
+                        className="border border-gray-300 px-4 py-2 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={handleConfirmar}
+                        disabled={seleccionados.size === 0 || confirmando}
+                        className="bg-teal-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {confirmando ? "Reciclando..." : `Confirmar Reciclado (${seleccionados.size})`}
                     </button>
                 </div>
             </div>
