@@ -1857,7 +1857,53 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
 
                 {/* ─── TAB: REPORTES ─────────────────────────────── */}
                 {seccion === "reportes" && (
-                <div className="space-y-4">
+                <div className="space-y-6">
+
+                    {/* ── Reporte: Stock Agotados ─────────────────── */}
+                    <div>
+                        <div className="mb-3">
+                            <h2 className="text-2xl font-bold text-gray-800">Stock agotados</h2>
+                            <p className="text-sm text-gray-500 mt-1">
+                                {items.filter(it => it.current_qty === 0).length} artículo{items.filter(it => it.current_qty === 0).length !== 1 ? "s" : ""} con stock en 0
+                            </p>
+                        </div>
+                        {cargando ? (
+                            <div className="text-center py-8">
+                                <div className="w-8 h-8 border-4 border-gray-200 border-t-gray-600 rounded-full animate-spin mx-auto mb-2"></div>
+                                <p className="text-gray-500 text-sm">Cargando inventario...</p>
+                            </div>
+                        ) : items.filter(it => it.current_qty === 0).length === 0 ? (
+                            <div className="text-center py-10 bg-white rounded-2xl border border-gray-200">
+                                <svg className="w-14 h-14 text-green-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" /></svg>
+                                <p className="text-gray-500 text-base mb-1">Todo en orden</p>
+                                <p className="text-gray-400 text-sm">No hay artículos con stock agotado</p>
+                            </div>
+                        ) : (
+                            <div className="grid gap-2">
+                                {items.filter(it => it.current_qty === 0).map(item => (
+                                    <div key={item.id} className="flex items-center gap-3 bg-white rounded-xl border border-red-200 p-4 hover:shadow-sm transition-all">
+                                        <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                                            <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-sm text-gray-800 truncate">{item.name}</div>
+                                            <div className="text-xs text-gray-500">
+                                                {item.category === "bloc" ? "Bloque" : item.category === "bur" ? "Fresa" : item.category === "anillas" ? "Anillas" : "Otro"} · {item.unit || "pzas"}
+                                                {item.tags && item.tags.length > 0 && (
+                                                    <span> · {item.tags.join(", ")}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <span className="text-xs font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-lg border border-red-200">
+                                            AGOTADO
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ── Reporte: Errores y Fallas ───────────────── */}
                     <div>
                         <h2 className="text-2xl font-bold text-gray-800">Reportes de errores y fallas</h2>
                         <p className="text-sm text-gray-500 mt-1">{reportes.length} reporte{reportes.length !== 1 ? "s" : ""} registrado{reportes.length !== 1 ? "s" : ""}</p>
