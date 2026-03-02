@@ -429,7 +429,9 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         const { data: historial, error: errHistorial } = await supabase
             .from("jobs")
             .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera, notas_doctor, reciclado")
-            .order("created_at", { ascending: false });
+            .eq("status", "completed")
+            .not("completed_at", "is", null)
+            .order("completed_at", { ascending: false });
 
         if (errHistorial) {
             console.error("Error cargando historial de trabajos:", errHistorial);
@@ -1585,7 +1587,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                             {trabajo.doctor && <div className="text-sm text-gray-600 mt-0.5">Dr. {trabajo.doctor}</div>}
                             <div className="text-xs text-gray-500 mt-1">
                                 {trabajo.status === "completed" ? (
-                                    <>Finalizado por {trabajo.completed_by_name} · {new Date(trabajo.completed_at).toLocaleString("es-MX")} · Creado: {new Date(trabajo.created_at).toLocaleString("es-MX")}</>
+                                    <>Finalizado por {trabajo.completed_by_name} · {new Date(trabajo.completed_at).toLocaleString("es-MX")} · Creado por {trabajo.created_by_name}: {new Date(trabajo.created_at).toLocaleString("es-MX")}</>
                                 ) : (
                                     <>Creado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}</>
                                 )}
