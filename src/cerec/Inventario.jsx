@@ -429,8 +429,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         const { data: historial, error: errHistorial } = await supabase
             .from("jobs")
             .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera, notas_doctor, reciclado")
-            .order("created_at", { ascending: false })
-            .limit(50);
+            .order("created_at", { ascending: false });
 
         if (errHistorial) {
             console.error("Error cargando historial de trabajos:", errHistorial);

@@ -44,7 +44,7 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm }) {
         }
 
         if (!nombrePaciente.trim()) {
-            setError("Por favor ingresa el nombre del paciente.");
+            setError("Por favor ingresa el ID paciente.");
             return;
         }
 
@@ -120,12 +120,12 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm }) {
                     )}
 
                     <label className="text-sm font-medium">
-                        Nombre del paciente *
+                        ID paciente *
                         <input
                             type="text"
                             value={nombrePaciente}
                             onChange={(e) => setNombrePaciente(e.target.value)}
-                            placeholder="Nombre completo del paciente"
+                            placeholder="Ej: P-00123"
                             className="border rounded p-2 w-full mt-1"
                         />
                     </label>
