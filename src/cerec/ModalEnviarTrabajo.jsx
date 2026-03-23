@@ -18,6 +18,7 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm }) {
     const [nombreTratamiento, setNombreTratamiento] = useState("");
     const [nombrePaciente, setNombrePaciente] = useState("");
     const [pieza, setPieza] = useState("");
+    const [color, setColor] = useState("");
     const [fechaEspera, setFechaEspera] = useState("");
     const [notasDoctor, setNotasDoctor] = useState("");
     const [error, setError] = useState("");
@@ -65,6 +66,7 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm }) {
             treatment_name: requiereNombre ? nombreTratamiento.trim() : null,
             patient_name: nombrePaciente.trim(),
             pieza: pieza.trim() || null,
+            color: color.trim() || null,
             fecha_espera: fechaEsperaFormateada,
             notas_doctor: notasDoctor.trim() || null
         });
@@ -137,6 +139,17 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm }) {
                             value={pieza}
                             onChange={(e) => setPieza(e.target.value)}
                             placeholder="Ej: 21, 32, etc."
+                            className="border rounded p-2 w-full mt-1"
+                        />
+                    </label>
+
+                    <label className="text-sm font-medium">
+                        Color
+                        <input
+                            type="text"
+                            value={color}
+                            onChange={(e) => setColor(e.target.value)}
+                            placeholder="Ej: A1, B2, BL3, etc."
                             className="border rounded p-2 w-full mt-1"
                         />
                     </label>

@@ -47,6 +47,10 @@ export default function DoctorView({ user, perfil }) {
         if (trabajo.status === "completed") {
             return { texto: "Finalizado", color: "green", etapa: "Finalizado" };
         }
+
+        if (trabajo.status === "pending" && trabajo.etapa === "nuevo") {
+            return { texto: "Nuevo - En espera", color: "orange", etapa: "Pendiente de iniciar" };
+        }
         
         if (trabajo.etapa === "fresado") {
             return { texto: "En proceso - Fresado", color: "blue", etapa: "Fresado" };
@@ -67,7 +71,7 @@ export default function DoctorView({ user, perfil }) {
             // Cargar trabajos del doctor (filtrar por created_by)
             const { data: trabajosData, error: errTrabajos } = await supabase
                 .from("jobs")
-                .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, status, etapa, fecha_espera, created_at, completed_at, notas_doctor")
+                .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, status, etapa, fecha_espera, created_at, completed_at, notas_doctor")
                 .eq("created_by", user.id)
                 .order("created_at", { ascending: false });
 
@@ -173,9 +177,10 @@ export default function DoctorView({ user, perfil }) {
                     treatment_name: datosTrabajo.treatment_name,
                     patient_name: datosTrabajo.patient_name,
                     pieza: datosTrabajo.pieza || null,
+                    color: datosTrabajo.color || null,
                     doctor: nombreDoctor,
                     status: "pending",
-                    etapa: "diseño",
+                    etapa: "nuevo",
                     fecha_espera: datosTrabajo.fecha_espera,
                     notas_doctor: datosTrabajo.notas_doctor || null,
                     created_by: user.id
@@ -380,6 +385,12 @@ export default function DoctorView({ user, perfil }) {
                                                                 {estado.etapa}
                                                             </span>
                                                         </div>
+                                                        {trabajo.color && (
+                                                            <div>
+                                                                <span className="font-medium">Color:</span>{" "}
+                                                                <span className="text-amber-700 font-semibold">{trabajo.color}</span>
+                                                            </div>
+                                                        )}
 
                                                         {trabajo.fecha_espera && (
                                                             <div>

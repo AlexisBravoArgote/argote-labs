@@ -1,9 +1,9 @@
 -- Script para agregar campos etapa y fecha_espera a la tabla jobs
 -- Ejecuta este script en el SQL Editor de Supabase
 
--- 1. Agregar columna etapa (diseño/fresado)
+-- 1. Agregar columna etapa (nuevo/diseno/fresado)
 ALTER TABLE jobs 
-ADD COLUMN IF NOT EXISTS etapa TEXT DEFAULT 'diseño' CHECK (etapa IN ('diseño', 'fresado'));
+ADD COLUMN IF NOT EXISTS etapa TEXT DEFAULT 'nuevo' CHECK (etapa IN ('nuevo', 'diseño', 'fresado'));
 
 -- 2. Agregar columna fecha_espera
 ALTER TABLE jobs 

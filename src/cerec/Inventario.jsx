@@ -50,6 +50,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
     const [trabajoParaAnillas, setTrabajoParaAnillas] = useState(null);
     const [mostrarModalReciclar, setMostrarModalReciclar] = useState(false);
     const [trabajoParaReciclar, setTrabajoParaReciclar] = useState(null);
+    const [trabajosNuevos, setTrabajosNuevos] = useState([]);
     const [trabajosPendientes, setTrabajosPendientes] = useState([]);
     const [historialTrabajos, setHistorialTrabajos] = useState([]);
     const [cargandoTrabajos, setCargandoTrabajos] = useState(false);
@@ -317,11 +318,40 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
     async function cargarTrabajos() {
         setCargandoTrabajos(true);
         
+        // Cargar trabajos nuevos (enviados por doctor, sin iniciar)
+        const { data: nuevos, error: errNuevos } = await supabase
+            .from("jobs")
+            .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, created_by, created_at, etapa, fecha_espera, notas_doctor, reciclado")
+            .eq("status", "pending")
+            .eq("etapa", "nuevo")
+            .order("created_at", { ascending: false });
+
+        if (errNuevos) {
+            console.error("Error cargando trabajos nuevos:", errNuevos);
+            setTrabajosNuevos([]);
+        } else {
+            const userIdsNuevos = [...new Set((nuevos || []).map(t => t.created_by))];
+            const { data: perfilesNuevos } = await supabase
+                .from("profiles")
+                .select("id, full_name")
+                .in("id", userIdsNuevos.length ? userIdsNuevos : ["00000000-0000-0000-0000-000000000000"]);
+
+            const userMapNuevos = new Map((perfilesNuevos || []).map(p => [p.id, p.full_name || p.id]));
+
+            const nuevosConNombres = (nuevos || []).map(t => ({
+                ...t,
+                created_by_name: userMapNuevos.get(t.created_by) || t.created_by
+            }));
+
+            setTrabajosNuevos(nuevosConNombres);
+        }
+
         // Cargar trabajos en proceso
         const { data: pendientes, error: errPendientes } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, created_by, created_at, etapa, fecha_espera, notas_doctor, reciclado")
+            .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, created_by, created_at, etapa, fecha_espera, notas_doctor, reciclado")
             .eq("status", "pending")
+            .neq("etapa", "nuevo")
             .order("created_at", { ascending: false });
 
         if (errPendientes) {
@@ -428,7 +458,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         // Cargar historial de trabajos
         const { data: historial, error: errHistorial } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera, notas_doctor, reciclado")
+            .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera, notas_doctor, reciclado")
             .eq("status", "completed")
             .not("completed_at", "is", null)
             .order("completed_at", { ascending: false });
@@ -555,7 +585,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
             // Cargar todos los trabajos (pendientes y finalizados)
             const { data: todosTrabajos, error: errTrabajos } = await supabase
                 .from("jobs")
-                .select("id, treatment_type, treatment_name, patient_name, pieza, doctor, status, fecha_espera, completed_at, created_at")
+                .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, status, fecha_espera, completed_at, created_at")
                 .order("created_at", { ascending: false });
 
             if (errTrabajos) {
@@ -782,6 +812,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                     treatment_name: datosTrabajo.treatment_name,
                     patient_name: datosTrabajo.patient_name,
                     pieza: datosTrabajo.pieza,
+                    color: datosTrabajo.color || null,
                     doctor: datosTrabajo.doctor,
                     status: "pending",
                     etapa: "diseño",
@@ -856,6 +887,24 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
 
         if (error) {
             setError(`Error al finalizar trabajo: ${error.message}`);
+            return;
+        }
+
+        await cargarTrabajos();
+    }
+
+    async function empezarTrabajo(trabajoId) {
+        if (!confirm("¿Empezar este trabajo y moverlo a trabajos en proceso?")) return;
+
+        setError("");
+
+        const { error } = await supabase
+            .from("jobs")
+            .update({ etapa: "diseño" })
+            .eq("id", trabajoId);
+
+        if (error) {
+            setError(`Error al empezar trabajo: ${error.message}`);
             return;
         }
 
@@ -1266,6 +1315,51 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
             {/* ─── TAB: TRABAJOS ─────────────────────────────── */}
                 {seccion === "trabajos" && (
                 <div className="space-y-4">
+                    <div className="bg-white rounded-2xl border border-amber-200 p-5">
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-800">Trabajos nuevos</h3>
+                                <p className="text-sm text-gray-500">{trabajosNuevos.length} pendiente{trabajosNuevos.length !== 1 ? "s" : ""} por iniciar</p>
+                            </div>
+                        </div>
+                        {trabajosNuevos.length === 0 ? (
+                            <p className="text-sm text-gray-500">No hay trabajos nuevos por iniciar.</p>
+                        ) : (
+                            <div className="grid gap-3">
+                                {trabajosNuevos.map((trabajo) => (
+                                    <div key={trabajo.id} className="rounded-xl border border-amber-200 bg-amber-50/30 p-4">
+                                        <div className="flex flex-col lg:flex-row justify-between items-start gap-3">
+                                            <div className="min-w-0">
+                                                <h4 className="text-base font-semibold text-gray-800">
+                                                    {obtenerNombreTratamiento(trabajo)} — {trabajo.patient_name}
+                                                    {trabajo.pieza && <span className="text-gray-500 font-normal"> (Pieza: {trabajo.pieza})</span>}
+                                                </h4>
+                                                <div className="text-sm text-gray-600 mt-1">Dr. {trabajo.doctor || "Sin doctor"}</div>
+                                                {trabajo.color && (
+                                                    <div className="text-sm text-amber-700 mt-1 font-medium">Color: {trabajo.color}</div>
+                                                )}
+                                                <div className="text-xs text-gray-500 mt-1">
+                                                    Enviado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
+                                                </div>
+                                                {trabajo.notas_doctor && (
+                                                    <div className="mt-2 p-2 bg-blue-50 border-l-4 border-blue-400 rounded-r-lg text-sm text-gray-700">
+                                                        {trabajo.notas_doctor}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <button
+                                                onClick={() => empezarTrabajo(trabajo.id)}
+                                                className="px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 text-sm font-medium transition-colors shadow-sm"
+                                            >
+                                                Empezar
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div>
                             <h2 className="text-2xl font-bold text-gray-800">Trabajos en proceso</h2>
@@ -1349,6 +1443,11 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                         <div className="text-sm text-gray-600 mt-1 flex items-center gap-1">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                                             Dr. {trabajo.doctor}
+                                        </div>
+                                    )}
+                                    {trabajo.color && (
+                                        <div className="text-sm text-amber-700 mt-1 font-medium">
+                                            Color: {trabajo.color}
                                         </div>
                                     )}
                                     <div className="text-xs text-gray-500 mt-1">
