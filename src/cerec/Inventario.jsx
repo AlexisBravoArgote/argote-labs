@@ -324,7 +324,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
             .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, created_by, created_at, etapa, fecha_espera, notas_doctor, reciclado")
             .eq("status", "pending")
             .eq("etapa", "nuevo")
-            .order("created_at", { ascending: false });
+            .order("fecha_espera", { ascending: true });
 
         if (errNuevos) {
             console.error("Error cargando trabajos nuevos:", errNuevos);
@@ -342,6 +342,18 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 ...t,
                 created_by_name: userMapNuevos.get(t.created_by) || t.created_by
             }));
+
+            // Ordenar por fecha esperada más cercana primero; sin fecha al final
+            const tsEspera = (t) => {
+                if (!t.fecha_espera) return Number.POSITIVE_INFINITY;
+                return new Date(t.fecha_espera + "T00:00:00").getTime();
+            };
+            nuevosConNombres.sort((a, b) => {
+                const da = tsEspera(a);
+                const db = tsEspera(b);
+                if (da !== db) return da - db;
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            });
 
             setTrabajosNuevos(nuevosConNombres);
         }
@@ -1319,7 +1331,12 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                         <div className="flex items-center justify-between gap-3 mb-3">
                             <div>
                                 <h3 className="text-lg font-bold text-gray-800">Trabajos nuevos</h3>
-                                <p className="text-sm text-gray-500">{trabajosNuevos.length} pendiente{trabajosNuevos.length !== 1 ? "s" : ""} por iniciar</p>
+                                <p className="text-sm text-gray-500">
+                                    {trabajosNuevos.length} pendiente{trabajosNuevos.length !== 1 ? "s" : ""} por iniciar
+                                    {trabajosNuevos.length > 0 && (
+                                        <span className="text-gray-400"> · Orden: fecha esperada más cercana primero</span>
+                                    )}
+                                </p>
                             </div>
                         </div>
                         {trabajosNuevos.length === 0 ? (
@@ -1337,6 +1354,13 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                                 <div className="text-sm text-gray-600 mt-1">Dr. {trabajo.doctor || "Sin doctor"}</div>
                                                 {trabajo.color && (
                                                     <div className="text-sm text-amber-700 mt-1 font-medium">Color: {trabajo.color}</div>
+                                                )}
+                                                {trabajo.fecha_espera ? (
+                                                    <div className="text-sm text-blue-600 font-semibold mt-1">
+                                                        Fecha esperada: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX", { weekday: "short", year: "numeric", month: "short", day: "numeric" })}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs text-amber-800 mt-1 font-medium">Sin fecha esperada registrada</div>
                                                 )}
                                                 <div className="text-xs text-gray-500 mt-1">
                                                     Enviado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
