@@ -62,17 +62,8 @@ export default function CerecApp() {
             if (mounted) setLoading(false);
         });
 
-        // 3) Cerrar sesión al cerrar pestaña/navegador
-        const handlePageHide = () => { supabase.auth.signOut().catch(() => {}); };
-        const handleBeforeUnload = () => { supabase.auth.signOut().catch(() => {}); };
-
-        window.addEventListener("pagehide", handlePageHide);
-        window.addEventListener("beforeunload", handleBeforeUnload);
-
         return () => {
             mounted = false;
-            window.removeEventListener("pagehide", handlePageHide);
-            window.removeEventListener("beforeunload", handleBeforeUnload);
             if (sub?.subscription) sub.subscription.unsubscribe();
         };
     }, []);
