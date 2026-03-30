@@ -25,6 +25,7 @@ export default function DoctorView({ user, perfil }) {
     const [cargando, setCargando] = useState(true);
     const [cargandoInventario, setCargandoInventario] = useState(true);
     const [error, setError] = useState("");
+    const [errorModalEnviar, setErrorModalEnviar] = useState("");
     const [mostrarModalEnviar, setMostrarModalEnviar] = useState(false);
     const [busqueda, setBusqueda] = useState("");
     const [busquedaInventario, setBusquedaInventario] = useState("");
@@ -63,8 +64,11 @@ export default function DoctorView({ user, perfil }) {
         return { texto: "Pendiente", color: "orange", etapa: "Pendiente" };
     }
 
-    async function cargarTrabajos() {
-        setCargando(true);
+    async function cargarTrabajos(options = {}) {
+        const { silent = false } = options;
+        if (!silent) {
+            setCargando(true);
+        }
         setError("");
 
         try {
@@ -77,7 +81,6 @@ export default function DoctorView({ user, perfil }) {
 
             if (errTrabajos) {
                 setError(`Error al cargar trabajos: ${errTrabajos.message}`);
-                setCargando(false);
                 return;
             }
 
@@ -121,12 +124,13 @@ export default function DoctorView({ user, perfil }) {
         } catch (err) {
             setError(`Error inesperado: ${err.message}`);
         } finally {
-            setCargando(false);
+            if (!silent) setCargando(false);
         }
     }
 
-    async function cargarInventario() {
-        setCargandoInventario(true);
+    async function cargarInventario(options = {}) {
+        const { silent = false } = options;
+        if (!silent) setCargandoInventario(true);
         setError("");
         try {
             const { data: itemsData, error: errItems } = await supabase
@@ -143,57 +147,120 @@ export default function DoctorView({ user, perfil }) {
         } catch (err) {
             setError(`Error inesperado al cargar inventario: ${err.message}`);
         } finally {
-            setCargandoInventario(false);
+            if (!silent) setCargandoInventario(false);
         }
     }
 
     useEffect(() => {
+        if (!user?.id) return;
+
         cargarTrabajos();
         cargarInventario();
 
-        // Realtime: auto-refresh for jobs and inventory
+        // Realtime: actualizar sin pantallas de carga (evita “colgado” al volver de otra pestaña)
         const channel = supabase
             .channel('doctor-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => cargarTrabajos())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => cargarInventario())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, () => cargarInventario())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => cargarTrabajos({ silent: true }))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => cargarInventario({ silent: true }))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, () => cargarInventario({ silent: true }))
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, [user]);
+    }, [user?.id]);
+
+    function errorPareceAuth(err) {
+        if (!err) return false;
+        const t = `${err.message ?? ""} ${err.details ?? ""} ${err.hint ?? ""} ${err.code ?? ""}`;
+        return /jwt|session|auth|expired|token|unauthorized|401|permission denied/i.test(t);
+    }
+
+    async function refrescarSesionConTope(ms = 12000) {
+        return Promise.race([
+            supabase.auth.refreshSession(),
+            new Promise((resolve) =>
+                setTimeout(() => resolve({ data: { session: null }, error: { message: "timeout" } }), ms)
+            ),
+        ]);
+    }
+
+    function conTope(promise, ms, mensaje) {
+        return Promise.race([
+            promise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error(mensaje)), ms)),
+        ]);
+    }
 
     async function enviarTrabajo(datosTrabajo) {
         setError("");
-        setMostrarModalEnviar(false);
+        setErrorModalEnviar("");
+
+        const nombreDoctor = perfil?.full_name || "Doctor";
 
         try {
-            // Crear el trabajo con el doctor del perfil
-            const nombreDoctor = perfil?.full_name || "Doctor";
-            
-            const { error: errTrabajo } = await supabase
-                .from("jobs")
-                .insert({
-                    treatment_type: datosTrabajo.treatment_type,
-                    treatment_name: datosTrabajo.treatment_name,
-                    patient_name: datosTrabajo.patient_name,
-                    pieza: datosTrabajo.pieza || null,
-                    color: datosTrabajo.color || null,
-                    doctor: nombreDoctor,
-                    status: "pending",
-                    etapa: "nuevo",
-                    fecha_espera: datosTrabajo.fecha_espera,
-                    notas_doctor: datosTrabajo.notas_doctor || null,
-                    created_by: user.id
-                });
+            // No llamar refreshSession aquí siempre: al volver de otra pestaña chocaba con otros refrescos
+            // y a veces dejaba la promesa colgada (“Enviando…” eterno). getSession es inmediato (storage).
+            let { data: { session } } = await supabase.auth.getSession();
+            let uid = session?.user?.id ?? user?.id;
 
-            if (errTrabajo) {
-                setError(`Error al enviar trabajo: ${errTrabajo.message}`);
+            if (!uid) {
+                await refrescarSesionConTope();
+                ({ data: { session } } = await supabase.auth.getSession());
+                uid = session?.user?.id ?? user?.id;
+            }
+            if (!uid) {
+                const msg = "No se pudo verificar tu sesión. Cierra sesión y entra de nuevo.";
+                setError(msg);
+                setErrorModalEnviar(msg);
                 return;
             }
 
-            await cargarTrabajos();
+            const fila = {
+                treatment_type: datosTrabajo.treatment_type,
+                treatment_name: datosTrabajo.treatment_name,
+                patient_name: datosTrabajo.patient_name,
+                pieza: datosTrabajo.pieza || null,
+                color: datosTrabajo.color || null,
+                doctor: nombreDoctor,
+                status: "pending",
+                etapa: "nuevo",
+                fecha_espera: datosTrabajo.fecha_espera,
+                notas_doctor: datosTrabajo.notas_doctor || null,
+                created_by: uid,
+            };
+
+            let { error: errTrabajo } = await conTope(
+                supabase.from("jobs").insert(fila),
+                30000,
+                "La petición tardó demasiado. Revisa tu conexión y vuelve a intentar."
+            );
+
+            if (errTrabajo && errorPareceAuth(errTrabajo)) {
+                await refrescarSesionConTope();
+                ({ data: { session } } = await supabase.auth.getSession());
+                uid = session?.user?.id ?? uid;
+                ({ error: errTrabajo } = await conTope(
+                    supabase.from("jobs").insert({ ...fila, created_by: uid }),
+                    30000,
+                    "La petición tardó demasiado. Revisa tu conexión y vuelve a intentar."
+                ));
+            }
+
+            if (errTrabajo) {
+                const msg = `Error al enviar trabajo: ${errTrabajo.message}`;
+                setError(msg);
+                setErrorModalEnviar(msg);
+                return;
+            }
+
+            setMostrarModalEnviar(false);
+            setErrorModalEnviar("");
+            // No esperar cargarTrabajos: tras cambiar de pestaña a veces la query se retrasa y el modal
+            // seguía en “Enviando…” aunque el insert ya hubiera terminado.
+            void cargarTrabajos({ silent: true }).catch(() => {});
         } catch (err) {
-            setError(`Error inesperado: ${err.message}`);
+            const msg = `Error inesperado: ${err.message}`;
+            setError(msg);
+            setErrorModalEnviar(msg);
         }
     }
 
@@ -309,7 +376,7 @@ export default function DoctorView({ user, perfil }) {
                     <>
                         <div className="mb-6">
                             <button
-                                onClick={() => setMostrarModalEnviar(true)}
+                                onClick={() => { setErrorModalEnviar(""); setMostrarModalEnviar(true); }}
                                 className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 text-lg font-medium shadow-md"
                             >
                                 Mandar trabajo al CEREC
@@ -585,7 +652,8 @@ export default function DoctorView({ user, perfil }) {
             {mostrarModalEnviar && (
                 <ModalEnviarTrabajo
                     perfil={perfil}
-                    onClose={() => setMostrarModalEnviar(false)}
+                    errorEnvio={errorModalEnviar}
+                    onClose={() => { setMostrarModalEnviar(false); setErrorModalEnviar(""); }}
                     onConfirm={enviarTrabajo}
                 />
             )}

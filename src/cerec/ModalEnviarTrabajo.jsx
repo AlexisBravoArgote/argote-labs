@@ -13,7 +13,7 @@ const TIPOS_TRATAMIENTO = [
     { value: "rehabilitacion_completa", label: "Rehabilitación completa" },
 ];
 
-export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm }) {
+export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEnvio = "" }) {
     const [tipoTratamiento, setTipoTratamiento] = useState("");
     const [nombreTratamiento, setNombreTratamiento] = useState("");
     const [nombrePaciente, setNombrePaciente] = useState("");
@@ -22,6 +22,7 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm }) {
     const [fechaEspera, setFechaEspera] = useState("");
     const [notasDoctor, setNotasDoctor] = useState("");
     const [error, setError] = useState("");
+    const [enviando, setEnviando] = useState(false);
 
     const tratamientoSeleccionado = TIPOS_TRATAMIENTO.find(t => t.value === tipoTratamiento);
     const requiereNombre = tratamientoSeleccionado?.requiereNombre;
@@ -31,7 +32,7 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm }) {
         setNombreTratamiento("");
     }, [tipoTratamiento]);
 
-    function validarYConfirmar() {
+    async function validarYConfirmar() {
         setError("");
 
         if (!tipoTratamiento) {
@@ -61,21 +62,28 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm }) {
             fechaEsperaFormateada = fechaLocal.toISOString().split('T')[0];
         }
 
-        onConfirm({
-            treatment_type: tipoTratamiento,
-            treatment_name: requiereNombre ? nombreTratamiento.trim() : null,
-            patient_name: nombrePaciente.trim(),
-            pieza: pieza.trim() || null,
-            color: color.trim() || null,
-            fecha_espera: fechaEsperaFormateada,
-            notas_doctor: notasDoctor.trim() || null
-        });
+        setEnviando(true);
+        try {
+            await Promise.resolve(
+                onConfirm({
+                    treatment_type: tipoTratamiento,
+                    treatment_name: requiereNombre ? nombreTratamiento.trim() : null,
+                    patient_name: nombrePaciente.trim(),
+                    pieza: pieza.trim() || null,
+                    color: color.trim() || null,
+                    fecha_espera: fechaEsperaFormateada,
+                    notas_doctor: notasDoctor.trim() || null,
+                })
+            );
+        } finally {
+            setEnviando(false);
+        }
     }
 
     return (
         <div
             className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
-            onClick={onClose}
+            onClick={() => { if (!enviando) onClose(); }}
         >
             <div
                 className="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6"
@@ -84,6 +92,7 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm }) {
                 <h3 className="text-xl font-bold mb-4">Mandar Trabajo al CEREC</h3>
 
                 {error && <div className="text-red-600 mb-4 text-sm bg-red-50 border border-red-200 rounded p-2">{error}</div>}
+                {errorEnvio && <div className="text-red-700 mb-4 text-sm bg-red-50 border border-red-300 rounded p-2 font-medium">{errorEnvio}</div>}
 
                 <div className="grid gap-4">
                     <div className="bg-blue-50 border border-blue-200 rounded p-3">
@@ -180,14 +189,16 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm }) {
                 </div>
 
                 <div className="flex justify-end gap-2 mt-6">
-                    <button onClick={onClose} className="border px-4 py-2 rounded hover:bg-gray-50">
+                    <button type="button" disabled={enviando} onClick={onClose} className="border px-4 py-2 rounded hover:bg-gray-50 disabled:opacity-50">
                         Cancelar
                     </button>
                     <button
-                        onClick={validarYConfirmar}
-                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                        type="button"
+                        disabled={enviando}
+                        onClick={() => void validarYConfirmar()}
+                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-60"
                     >
-                        Enviar trabajo
+                        {enviando ? "Enviando…" : "Enviar trabajo"}
                     </button>
                 </div>
             </div>

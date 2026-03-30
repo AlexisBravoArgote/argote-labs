@@ -362,8 +362,9 @@ export default function LogisticaView({ user, perfil }) {
     const [paginaMovs, setPaginaMovs] = useState(1);
 
     // ─── Cargar datos ──────────────────────────────────────────────
-    async function cargarDatos() {
-        setLoading(true);
+    async function cargarDatos(options = {}) {
+        const { silent = false } = options;
+        if (!silent) setLoading(true);
         try {
             const [catRes, itemRes, movRes] = await Promise.all([
                 supabase.from("logistics_categories").select("*").order("name"),
@@ -381,7 +382,7 @@ export default function LogisticaView({ user, perfil }) {
         } catch (err) {
             setError(err.message);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }
 
@@ -391,9 +392,9 @@ export default function LogisticaView({ user, perfil }) {
         // Realtime: auto-refresh when logistics data changes
         const channel = supabase
             .channel('logistica-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'logistics_items' }, () => cargarDatos())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'logistics_movements' }, () => cargarDatos())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'logistics_categories' }, () => cargarDatos())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'logistics_items' }, () => cargarDatos({ silent: true }))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'logistics_movements' }, () => cargarDatos({ silent: true }))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'logistics_categories' }, () => cargarDatos({ silent: true }))
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };

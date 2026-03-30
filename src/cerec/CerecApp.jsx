@@ -9,26 +9,33 @@ import LogisticaView from "./LogisticaView";
 export default function CerecApp() {
     const [user, setUser] = useState(null);
     const [perfil, setPerfil] = useState(null);
-    const [loading, setLoading] = useState(true);
+    /** Solo el primer arranque: al volver de otra pestaña Supabase refresca el token y dispara onAuthStateChange; no debe tapar el portal con “Cargando…”. */
+    const [bootstrapping, setBootstrapping] = useState(true);
     const [vista, setVista] = useState("inventario"); // "inventario" o "admin"
 
     // Cargar perfil dado un usuario
-    async function cargarPerfil(u) {
-        if (!u) { setPerfil(null); return; }
+    async function cargarPerfil(u, mountedRef) {
+        if (!u) {
+            if (mountedRef?.current !== false) setPerfil(null);
+            return;
+        }
         try {
             const { data: p, error } = await supabase
                 .from("profiles")
                 .select("id, full_name, role")
                 .eq("id", u.id)
                 .single();
+            if (mountedRef?.current === false) return;
             setPerfil(error ? null : (p ?? null));
         } catch {
+            if (mountedRef?.current === false) return;
             setPerfil(null);
         }
     }
 
     useEffect(() => {
         let mounted = true;
+        const mountedRef = { current: true };
         let initialized = false;
 
         // 1) Carga inicial: getSession() es instantáneo (lee de localStorage, no hace red)
@@ -39,37 +46,48 @@ export default function CerecApp() {
 
                 const u = session?.user ?? null;
                 setUser(u);
-                await cargarPerfil(u);
+                await cargarPerfil(u, mountedRef);
             } catch (err) {
                 console.error("Error al cargar sesión:", err);
                 if (mounted) { setUser(null); setPerfil(null); }
             } finally {
                 if (mounted) {
                     initialized = true;
-                    setLoading(false);
+                    setBootstrapping(false);
                 }
             }
         })();
 
-        // 2) Escuchar cambios de auth (login/logout) — ignora el evento inicial
-        const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            if (!mounted || !initialized) return; // Ignorar el INITIAL_SESSION
+        // 2) Login / logout / refresh…
+        // IMPORTANTE: nunca usar await con Supabase dentro de este callback. Supabase documenta que eso puede
+        // dejar bloqueadas las siguientes peticiones (insert/select “colgados”), típico al volver de otra pestaña
+        // cuando se dispara TOKEN_REFRESHED / sincronización entre tabs.
+        const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+            if (!mounted || !initialized) return;
+
+            if (event === "TOKEN_REFRESHED") {
+                if (session?.user) setUser(session.user);
+                return;
+            }
 
             const u = session?.user ?? null;
             setUser(u);
-            setLoading(true); // Mostrar loading mientras carga perfil
-            await cargarPerfil(u);
-            if (mounted) setLoading(false);
+
+            setTimeout(() => {
+                if (!mounted) return;
+                void cargarPerfil(u, mountedRef);
+            }, 0);
         });
 
         return () => {
             mounted = false;
+            mountedRef.current = false;
             if (sub?.subscription) sub.subscription.unsubscribe();
         };
     }, []);
 
     // ─── Pantalla de carga profesional ─────────────────────────────
-    if (loading) {
+    if (bootstrapping) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 relative overflow-hidden">
                 <div className="absolute inset-0 overflow-hidden">

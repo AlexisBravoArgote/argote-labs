@@ -315,9 +315,11 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         }
     }
 
-    async function cargarTrabajos() {
-        setCargandoTrabajos(true);
-        
+    async function cargarTrabajos(options = {}) {
+        const { silent = false } = options;
+        if (!silent) setCargandoTrabajos(true);
+
+        try {
         // Cargar trabajos nuevos (enviados por doctor, sin iniciar)
         const { data: nuevos, error: errNuevos } = await supabase
             .from("jobs")
@@ -555,12 +557,15 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
             setHistorialTrabajos(historialConNombres);
         }
 
-        setCargandoTrabajos(false);
+        } finally {
+            if (!silent) setCargandoTrabajos(false);
+        }
     }
 
-    async function cargar() {
+    async function cargar(options = {}) {
+        const { silent = false } = options;
         setError("");
-        setCargando(true);
+        if (!silent) setCargando(true);
 
         try {
             const { data: it, error: iErr } = await supabase
@@ -571,7 +576,6 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
             if (iErr) {
                 console.error("Error al cargar items:", iErr);
                 setError(`Error al cargar artículos: ${iErr.message}`);
-                setCargando(false);
                 return;
             }
             
@@ -581,13 +585,13 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
             setMovs(movsData);
             setHasMoreMovs(hasMore);
 
-            await cargarTrabajos();
-            await cargarReportes();
+            await cargarTrabajos({ silent });
+            await cargarReportes({ silent });
         } catch (err) {
             console.error("Error inesperado al cargar:", err);
             setError(`Error inesperado: ${err.message}`);
         } finally {
-            setCargando(false);
+            if (!silent) setCargando(false);
         }
     }
 
@@ -639,8 +643,9 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         }
     }
 
-    async function cargarReportes() {
-        setCargandoReportes(true);
+    async function cargarReportes(options = {}) {
+        const { silent = false } = options;
+        if (!silent) setCargandoReportes(true);
         try {
             const { data: reportesData, error: errReportes } = await supabase
                 .from("job_reports")
@@ -653,19 +658,16 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 if (errReportes.message.includes("does not exist") || errReportes.message.includes("no existe")) {
                     console.log("Tabla job_reports no existe aún. Ejecuta el script SQL para crearla.");
                     setReportes([]);
-                    setCargandoReportes(false);
                     return;
                 }
                 console.error("Error al cargar reportes:", errReportes);
                 setReportes([]);
-                setCargandoReportes(false);
                 return;
             }
 
             const reportesBase = reportesData || [];
             if (reportesBase.length === 0) {
                 setReportes([]);
-                setCargandoReportes(false);
                 return;
             }
 
@@ -704,7 +706,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
             console.error("Error inesperado al cargar reportes:", err);
             setReportes([]);
         } finally {
-            setCargandoReportes(false);
+            if (!silent) setCargandoReportes(false);
         }
     }
 
@@ -722,10 +724,10 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         // Realtime: auto-refresh when inventory data changes
         const channel = supabase
             .channel('inventario-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => cargar())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, () => cargar())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => cargar())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'job_materials' }, () => cargar())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => cargar({ silent: true }))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, () => cargar({ silent: true }))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => cargar({ silent: true }))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'job_materials' }, () => cargar({ silent: true }))
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
