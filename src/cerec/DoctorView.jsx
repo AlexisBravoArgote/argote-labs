@@ -37,7 +37,9 @@ export default function DoctorView({ user, perfil }) {
     const [categoriaInventario, setCategoriaInventario] = useState("todas");
     const [tagsFiltrados, setTagsFiltrados] = useState([]);
     const [paginaItems, setPaginaItems] = useState(1);
+    const [paginaTrabajos, setPaginaTrabajos] = useState(1);
     const itemsPorPagina = 4;
+    const trabajosPorPagina = 6;
 
     // Función para obtener nombre de tratamiento
     function obtenerNombreTratamiento(trabajo) {
@@ -330,6 +332,12 @@ export default function DoctorView({ user, perfil }) {
     }, [itemsFiltrados, paginaItems, itemsPorPagina]);
 
     const totalPaginasItems = Math.ceil(itemsFiltrados.length / itemsPorPagina);
+    const trabajosPaginados = useMemo(() => {
+        const inicio = (paginaTrabajos - 1) * trabajosPorPagina;
+        const fin = inicio + trabajosPorPagina;
+        return trabajosFiltrados.slice(inicio, fin);
+    }, [trabajosFiltrados, paginaTrabajos]);
+    const totalPaginasTrabajos = Math.ceil(trabajosFiltrados.length / trabajosPorPagina);
 
     async function logout() {
         await supabase.auth.signOut();
@@ -415,7 +423,7 @@ export default function DoctorView({ user, perfil }) {
                                     <input
                                         type="text"
                                         value={busqueda}
-                                        onChange={(e) => setBusqueda(e.target.value)}
+                                        onChange={(e) => { setBusqueda(e.target.value); setPaginaTrabajos(1); }}
                                         placeholder="Buscar en mis trabajos..."
                                         className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white"
                                     />
@@ -444,7 +452,7 @@ export default function DoctorView({ user, perfil }) {
                                         <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-2">Estado</label>
                                         <select
                                             value={filtroEstado}
-                                            onChange={(e) => setFiltroEstado(e.target.value)}
+                                            onChange={(e) => { setFiltroEstado(e.target.value); setPaginaTrabajos(1); }}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
                                         >
                                             <option value="todos">Todos los estados</option>
@@ -457,7 +465,7 @@ export default function DoctorView({ user, perfil }) {
                                         <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-2">Tratamiento</label>
                                         <select
                                             value={filtroTratamiento}
-                                            onChange={(e) => setFiltroTratamiento(e.target.value)}
+                                            onChange={(e) => { setFiltroTratamiento(e.target.value); setPaginaTrabajos(1); }}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
                                         >
                                             <option value="">Todos</option>
@@ -471,7 +479,7 @@ export default function DoctorView({ user, perfil }) {
                                         <input
                                             type="date"
                                             value={filtroFechaDesde}
-                                            onChange={(e) => setFiltroFechaDesde(e.target.value)}
+                                            onChange={(e) => { setFiltroFechaDesde(e.target.value); setPaginaTrabajos(1); }}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                                         />
                                     </div>
@@ -480,7 +488,7 @@ export default function DoctorView({ user, perfil }) {
                                         <input
                                             type="date"
                                             value={filtroFechaHasta}
-                                            onChange={(e) => setFiltroFechaHasta(e.target.value)}
+                                            onChange={(e) => { setFiltroFechaHasta(e.target.value); setPaginaTrabajos(1); }}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                                         />
                                     </div>
@@ -492,6 +500,7 @@ export default function DoctorView({ user, perfil }) {
                                             setFiltroFechaDesde("");
                                             setFiltroFechaHasta("");
                                             setFiltroTratamiento("");
+                                            setPaginaTrabajos(1);
                                         }}
                                         className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline"
                                     >
@@ -500,6 +509,40 @@ export default function DoctorView({ user, perfil }) {
                                 </div>
                             </div>
                         )}
+
+                        {(() => {
+                            const chips = [];
+                            if (filtroEstado !== "todos") {
+                                const labelEstado = filtroEstado === "nuevo" ? "Estado: Nuevo" : filtroEstado === "proceso" ? "Estado: Proceso" : "Estado: Finalizado";
+                                chips.push({ key: "estado", label: labelEstado, clear: () => { setFiltroEstado("todos"); setPaginaTrabajos(1); } });
+                            }
+                            if (filtroTratamiento) {
+                                const t = TIPOS_TRATAMIENTO.find(x => x.value === filtroTratamiento);
+                                chips.push({ key: "tratamiento", label: `Tratamiento: ${t?.label || filtroTratamiento}`, clear: () => { setFiltroTratamiento(""); setPaginaTrabajos(1); } });
+                            }
+                            if (filtroFechaDesde) {
+                                chips.push({ key: "desde", label: `Desde: ${new Date(filtroFechaDesde + "T00:00:00").toLocaleDateString("es-MX")}`, clear: () => { setFiltroFechaDesde(""); setPaginaTrabajos(1); } });
+                            }
+                            if (filtroFechaHasta) {
+                                chips.push({ key: "hasta", label: `Hasta: ${new Date(filtroFechaHasta + "T00:00:00").toLocaleDateString("es-MX")}`, clear: () => { setFiltroFechaHasta(""); setPaginaTrabajos(1); } });
+                            }
+                            if (!chips.length) return null;
+                            return (
+                                <div className="mb-4 flex flex-wrap gap-2">
+                                    {chips.map((chip) => (
+                                        <button
+                                            key={chip.key}
+                                            onClick={chip.clear}
+                                            className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors"
+                                            title="Quitar filtro"
+                                        >
+                                            {chip.label}
+                                            <span className="text-blue-500">×</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            );
+                        })()}
 
                         <h2 className="text-lg font-semibold mb-4">Mis Trabajos</h2>
                         {cargando ? (
@@ -511,8 +554,9 @@ export default function DoctorView({ user, perfil }) {
                                     : "No has enviado ningún trabajo aún."}
                             </div>
                         ) : (
+                            <>
                             <div className="grid gap-4">
-                                {trabajosFiltrados.map((trabajo) => {
+                                {trabajosPaginados.map((trabajo) => {
                                     const estado = obtenerEstadoTrabajo(trabajo);
                                     return (
                                         <div key={trabajo.id} className="border rounded-lg p-4 bg-white shadow-sm">
@@ -615,6 +659,26 @@ export default function DoctorView({ user, perfil }) {
                                     );
                                 })}
                             </div>
+                            {totalPaginasTrabajos > 1 && (
+                                <div className="flex items-center justify-center gap-3 mt-4">
+                                    <button
+                                        onClick={() => setPaginaTrabajos((p) => Math.max(1, p - 1))}
+                                        disabled={paginaTrabajos === 1}
+                                        className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        Anterior
+                                    </button>
+                                    <span className="text-sm text-gray-600">{paginaTrabajos} / {totalPaginasTrabajos}</span>
+                                    <button
+                                        onClick={() => setPaginaTrabajos((p) => Math.min(totalPaginasTrabajos, p + 1))}
+                                        disabled={paginaTrabajos === totalPaginasTrabajos}
+                                        className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        Siguiente
+                                    </button>
+                                </div>
+                            )}
+                            </>
                         )}
                     </>
                 )}
