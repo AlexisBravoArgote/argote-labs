@@ -838,12 +838,13 @@ function DoctorCalendario({ trabajos, cargando, obtenerNombreTratamiento }) {
     const [fechaSeleccionada, setFechaSeleccionada] = useState(null);
 
     const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-    const diasSemana = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    const diasSemana = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
     const primerDia = new Date(añoActual, mesActual, 1);
     const ultimoDia = new Date(añoActual, mesActual + 1, 0);
     const diasEnMes = ultimoDia.getDate();
-    const diaInicioSemana = primerDia.getDay();
+    // Ajustar para semana que inicia en lunes (0 = lunes, 6 = domingo)
+    const diaInicioSemana = (primerDia.getDay() + 6) % 7;
 
     const trabajosCalendario = useMemo(() => {
         return (trabajos || [])
@@ -939,7 +940,7 @@ function DoctorCalendario({ trabajos, cargando, obtenerNombreTratamiento }) {
 
     return (
         <div className="bg-white rounded-2xl border border-gray-200 p-5">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-800">Mi Calendario</h2>
                     <p className="text-sm text-gray-500">Solo muestra tus trabajos enviados</p>
@@ -960,7 +961,7 @@ function DoctorCalendario({ trabajos, cargando, obtenerNombreTratamiento }) {
                 <div className="text-center py-12 text-gray-500">Cargando calendario...</div>
             ) : (
                 <>
-                    <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center justify-between mb-5">
                         <button onClick={() => cambiarMes(-1)} className="p-2 hover:bg-gray-100 rounded-lg">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -974,13 +975,13 @@ function DoctorCalendario({ trabajos, cargando, obtenerNombreTratamiento }) {
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-7 gap-1 mb-6">
+                    <div className="grid grid-cols-7 gap-2 mb-4">
                         {diasSemana.map((dia) => (
-                            <div key={dia} className="text-center text-sm font-medium text-gray-600 py-2">{dia}</div>
+                            <div key={dia} className="text-center text-sm font-semibold text-gray-600 py-1.5">{dia}</div>
                         ))}
 
                         {dias.map((dia, idx) => {
-                            if (dia === null) return <div key={`empty-${idx}`} className="aspect-square" />;
+                            if (dia === null) return <div key={`empty-${idx}`} className="h-14 sm:h-16" />;
 
                             const fechaKey = obtenerFechaKey(dia);
                             const esHoyDia = esHoy(dia);
@@ -1011,7 +1012,7 @@ function DoctorCalendario({ trabajos, cargando, obtenerNombreTratamiento }) {
                                 <button
                                     key={dia}
                                     onClick={() => seleccionarFecha(dia)}
-                                    className={`aspect-square border rounded p-1 text-sm transition-colors ${fondoClase}`}
+                                    className={`h-14 sm:h-16 border rounded p-1 text-sm transition-colors ${fondoClase}`}
                                 >
                                     <div className="flex flex-col items-center justify-center h-full">
                                         <span>{dia}</span>
@@ -1039,7 +1040,7 @@ function DoctorCalendario({ trabajos, cargando, obtenerNombreTratamiento }) {
                             {trabajosDiaSeleccionado.length === 0 ? (
                                 <p className="text-gray-500 text-sm">No hay trabajos en esta fecha.</p>
                             ) : (
-                                <div className="space-y-2">
+                                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                                     {trabajosDiaSeleccionado.map((trabajo) => (
                                         <div
                                             key={trabajo.id}
