@@ -29,7 +29,11 @@ export default function DoctorView({ user, perfil }) {
     const [mostrarModalEnviar, setMostrarModalEnviar] = useState(false);
     const [busqueda, setBusqueda] = useState("");
     const [busquedaInventario, setBusquedaInventario] = useState("");
-    const [filtroEstado, setFiltroEstado] = useState("todos"); // "todos", "pendiente", "finalizado"
+    const [mostrarFiltrosTrabajos, setMostrarFiltrosTrabajos] = useState(false);
+    const [filtroEstado, setFiltroEstado] = useState("todos"); // "todos", "nuevo", "proceso", "finalizado"
+    const [filtroFechaDesde, setFiltroFechaDesde] = useState("");
+    const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
+    const [filtroTratamiento, setFiltroTratamiento] = useState("");
     const [categoriaInventario, setCategoriaInventario] = useState("todas");
     const [tagsFiltrados, setTagsFiltrados] = useState([]);
     const [paginaItems, setPaginaItems] = useState(1);
@@ -279,14 +283,31 @@ export default function DoctorView({ user, perfil }) {
         }
 
         // Filtro por estado
-        if (filtroEstado === "pendiente") {
-            filtrados = filtrados.filter(t => t.status === "pending");
+        if (filtroEstado === "nuevo") {
+            filtrados = filtrados.filter(t => t.status === "pending" && t.etapa === "nuevo");
+        } else if (filtroEstado === "proceso") {
+            filtrados = filtrados.filter(t => t.status === "pending" && t.etapa !== "nuevo");
         } else if (filtroEstado === "finalizado") {
             filtrados = filtrados.filter(t => t.status === "completed");
         }
 
+        // Filtro por tratamiento
+        if (filtroTratamiento) {
+            filtrados = filtrados.filter(t => t.treatment_type === filtroTratamiento);
+        }
+
+        // Filtro por fecha desde/hasta (basado en fecha de creacion)
+        if (filtroFechaDesde) {
+            const fechaDesde = new Date(filtroFechaDesde + "T00:00:00");
+            filtrados = filtrados.filter(t => new Date(t.created_at) >= fechaDesde);
+        }
+        if (filtroFechaHasta) {
+            const fechaHasta = new Date(filtroFechaHasta + "T23:59:59");
+            filtrados = filtrados.filter(t => new Date(t.created_at) <= fechaHasta);
+        }
+
         return filtrados;
-    }, [trabajos, busqueda, filtroEstado]);
+    }, [trabajos, busqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta, filtroTratamiento]);
 
     const itemsFiltrados = useMemo(() => {
         const q = busquedaInventario.trim().toLowerCase();
@@ -330,6 +351,7 @@ export default function DoctorView({ user, perfil }) {
                             <div className="hidden sm:flex items-center gap-1 bg-gray-100 rounded-xl p-1">
                                 {[
                                     { v: "trabajos", label: "Mis Trabajos" },
+                                    { v: "calendario", label: "Mi Calendario" },
                                     { v: "inventario", label: "Inventario CEREC" },
                                 ].map((tab) => (
                                     <button
@@ -356,6 +378,7 @@ export default function DoctorView({ user, perfil }) {
                 <div className="sm:hidden border-t border-gray-100 flex">
                     {[
                         { v: "trabajos", label: "Trabajos" },
+                        { v: "calendario", label: "Calendario" },
                         { v: "inventario", label: "Inventario" },
                     ].map((tab) => (
                         <button
@@ -383,24 +406,100 @@ export default function DoctorView({ user, perfil }) {
                             </button>
                         </div>
 
-                        <div className="mb-4 flex gap-4 items-center">
-                            <input
-                                type="text"
-                                value={busqueda}
-                                onChange={(e) => setBusqueda(e.target.value)}
-                                placeholder="Buscar trabajos..."
-                                className="border rounded p-2 flex-1"
-                            />
-                            <select
-                                value={filtroEstado}
-                                onChange={(e) => setFiltroEstado(e.target.value)}
-                                className="border rounded p-2"
-                            >
-                                <option value="todos">Todos los estados</option>
-                                <option value="pendiente">En proceso</option>
-                                <option value="finalizado">Finalizados</option>
-                            </select>
+                        <div className="mb-4 bg-white rounded-2xl border border-gray-200 p-4">
+                            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                                <div className="relative flex-1 w-full">
+                                    <svg className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                    <input
+                                        type="text"
+                                        value={busqueda}
+                                        onChange={(e) => setBusqueda(e.target.value)}
+                                        placeholder="Buscar en mis trabajos..."
+                                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white"
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => setMostrarFiltrosTrabajos(!mostrarFiltrosTrabajos)}
+                                    className="px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap"
+                                >
+                                    {mostrarFiltrosTrabajos ? "Ocultar filtros" : "Filtros"}
+                                </button>
+                            </div>
+                            {(() => {
+                                const filtrosActivos = [filtroEstado !== "todos", filtroFechaDesde, filtroFechaHasta, filtroTratamiento].filter(Boolean).length;
+                                return filtrosActivos > 0 ? (
+                                    <div className="mt-3 text-xs text-orange-700 font-medium bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200 inline-block">
+                                        {filtrosActivos} filtro{filtrosActivos > 1 ? "s" : ""} activo{filtrosActivos > 1 ? "s" : ""}
+                                    </div>
+                                ) : null;
+                            })()}
                         </div>
+
+                        {mostrarFiltrosTrabajos && (
+                            <div className="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-4 space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                    <div>
+                                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-2">Estado</label>
+                                        <select
+                                            value={filtroEstado}
+                                            onChange={(e) => setFiltroEstado(e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+                                        >
+                                            <option value="todos">Todos los estados</option>
+                                            <option value="nuevo">Nuevo</option>
+                                            <option value="proceso">Proceso</option>
+                                            <option value="finalizado">Finalizado</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-2">Tratamiento</label>
+                                        <select
+                                            value={filtroTratamiento}
+                                            onChange={(e) => setFiltroTratamiento(e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+                                        >
+                                            <option value="">Todos</option>
+                                            {TIPOS_TRATAMIENTO.map((t) => (
+                                                <option key={t.value} value={t.value}>{t.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-2">Desde</label>
+                                        <input
+                                            type="date"
+                                            value={filtroFechaDesde}
+                                            onChange={(e) => setFiltroFechaDesde(e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-2">Hasta</label>
+                                        <input
+                                            type="date"
+                                            value={filtroFechaHasta}
+                                            onChange={(e) => setFiltroFechaHasta(e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={() => {
+                                            setFiltroEstado("todos");
+                                            setFiltroFechaDesde("");
+                                            setFiltroFechaHasta("");
+                                            setFiltroTratamiento("");
+                                        }}
+                                        className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline"
+                                    >
+                                        Limpiar filtros
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         <h2 className="text-lg font-semibold mb-4">Mis Trabajos</h2>
                         {cargando ? (
@@ -647,6 +746,14 @@ export default function DoctorView({ user, perfil }) {
                         )}
                     </div>
                 )}
+                
+                {vista === "calendario" && (
+                    <DoctorCalendario
+                        trabajos={trabajos}
+                        cargando={cargando}
+                        obtenerNombreTratamiento={obtenerNombreTratamiento}
+                    />
+                )}
             </div>
 
             {mostrarModalEnviar && (
@@ -656,6 +763,259 @@ export default function DoctorView({ user, perfil }) {
                     onClose={() => { setMostrarModalEnviar(false); setErrorModalEnviar(""); }}
                     onConfirm={enviarTrabajo}
                 />
+            )}
+        </div>
+    );
+}
+
+function DoctorCalendario({ trabajos, cargando, obtenerNombreTratamiento }) {
+    const [mesActual, setMesActual] = useState(new Date().getMonth());
+    const [añoActual, setAñoActual] = useState(new Date().getFullYear());
+    const [fechaSeleccionada, setFechaSeleccionada] = useState(null);
+
+    const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    const diasSemana = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+    const primerDia = new Date(añoActual, mesActual, 1);
+    const ultimoDia = new Date(añoActual, mesActual + 1, 0);
+    const diasEnMes = ultimoDia.getDate();
+    const diaInicioSemana = primerDia.getDay();
+
+    const trabajosCalendario = useMemo(() => {
+        return (trabajos || [])
+            .map((t) => {
+                let fechaRelevante = null;
+                let tipoFecha = null;
+
+                if (t.status === "completed" && t.completed_at) {
+                    fechaRelevante = new Date(t.completed_at);
+                    tipoFecha = "finalizado";
+                } else if (t.fecha_espera) {
+                    fechaRelevante = new Date(t.fecha_espera + "T00:00:00");
+                    tipoFecha = "pendiente";
+                }
+
+                return {
+                    ...t,
+                    fechaRelevante,
+                    tipoFecha,
+                    treatment_name_display: obtenerNombreTratamiento(t),
+                };
+            })
+            .filter((t) => t.fechaRelevante !== null);
+    }, [trabajos, obtenerNombreTratamiento]);
+
+    const trabajosPorFecha = useMemo(() => {
+        const mapa = new Map();
+        trabajosCalendario.forEach((t) => {
+            const fechaKey = t.fechaRelevante.toISOString().split("T")[0];
+            if (!mapa.has(fechaKey)) {
+                mapa.set(fechaKey, []);
+            }
+            mapa.get(fechaKey).push(t);
+        });
+        return mapa;
+    }, [trabajosCalendario]);
+
+    const trabajosDiaSeleccionado = fechaSeleccionada
+        ? trabajosPorFecha.get(fechaSeleccionada) || []
+        : [];
+
+    function cambiarMes(delta) {
+        let nuevoMes = mesActual + delta;
+        let nuevoAño = añoActual;
+
+        if (nuevoMes < 0) {
+            nuevoMes = 11;
+            nuevoAño--;
+        } else if (nuevoMes > 11) {
+            nuevoMes = 0;
+            nuevoAño++;
+        }
+
+        setMesActual(nuevoMes);
+        setAñoActual(nuevoAño);
+        setFechaSeleccionada(null);
+    }
+
+    function obtenerFechaKey(dia) {
+        const fecha = new Date(añoActual, mesActual, dia);
+        return fecha.toISOString().split("T")[0];
+    }
+
+    function esHoy(dia) {
+        const hoy = new Date();
+        return dia === hoy.getDate() && mesActual === hoy.getMonth() && añoActual === hoy.getFullYear();
+    }
+
+    function tieneTrabajos(dia) {
+        return trabajosPorFecha.has(obtenerFechaKey(dia));
+    }
+
+    function todosFinalizados(dia) {
+        const trabajosDelDia = trabajosPorFecha.get(obtenerFechaKey(dia));
+        if (!trabajosDelDia || trabajosDelDia.length === 0) return false;
+        return trabajosDelDia.every((t) => t.tipoFecha === "finalizado");
+    }
+
+    function tienePendientes(dia) {
+        const trabajosDelDia = trabajosPorFecha.get(obtenerFechaKey(dia));
+        if (!trabajosDelDia || trabajosDelDia.length === 0) return false;
+        return trabajosDelDia.some((t) => t.tipoFecha === "pendiente");
+    }
+
+    function seleccionarFecha(dia) {
+        const fechaKey = obtenerFechaKey(dia);
+        setFechaSeleccionada(fechaSeleccionada === fechaKey ? null : fechaKey);
+    }
+
+    const dias = [];
+    for (let i = 0; i < diaInicioSemana; i++) dias.push(null);
+    for (let dia = 1; dia <= diasEnMes; dia++) dias.push(dia);
+
+    return (
+        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800">Mi Calendario</h2>
+                    <p className="text-sm text-gray-500">Solo muestra tus trabajos enviados</p>
+                </div>
+                <div className="flex items-center gap-3 text-xs">
+                    <span className="inline-flex items-center gap-1.5 text-gray-600">
+                        <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+                        Finalizado
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 text-gray-600">
+                        <span className="inline-block w-2 h-2 rounded-full bg-red-500"></span>
+                        Pendiente
+                    </span>
+                </div>
+            </div>
+
+            {cargando ? (
+                <div className="text-center py-12 text-gray-500">Cargando calendario...</div>
+            ) : (
+                <>
+                    <div className="flex items-center justify-between mb-6">
+                        <button onClick={() => cambiarMes(-1)} className="p-2 hover:bg-gray-100 rounded-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </button>
+                        <h3 className="text-lg font-semibold">{meses[mesActual]} {añoActual}</h3>
+                        <button onClick={() => cambiarMes(1)} className="p-2 hover:bg-gray-100 rounded-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1 mb-6">
+                        {diasSemana.map((dia) => (
+                            <div key={dia} className="text-center text-sm font-medium text-gray-600 py-2">{dia}</div>
+                        ))}
+
+                        {dias.map((dia, idx) => {
+                            if (dia === null) return <div key={`empty-${idx}`} className="aspect-square" />;
+
+                            const fechaKey = obtenerFechaKey(dia);
+                            const esHoyDia = esHoy(dia);
+                            const estaSeleccionado = fechaSeleccionada === fechaKey;
+                            const tieneTrab = tieneTrabajos(dia);
+                            const todosFin = todosFinalizados(dia);
+                            const tienePend = tienePendientes(dia);
+
+                            let fondoClase = "";
+                            let bolitaColor = "";
+                            if (esHoyDia) {
+                                fondoClase = "bg-blue-100 border-blue-500 font-bold";
+                            } else if (estaSeleccionado) {
+                                fondoClase = "bg-blue-200 border-blue-600";
+                            } else if (tieneTrab) {
+                                fondoClase = todosFin
+                                    ? "bg-green-50 border-green-300 hover:bg-green-100"
+                                    : "bg-red-50 border-red-300 hover:bg-red-100";
+                            } else {
+                                fondoClase = "hover:bg-gray-50";
+                            }
+
+                            if (tieneTrab) {
+                                bolitaColor = todosFin ? "bg-green-500" : (tienePend ? "bg-red-500" : "");
+                            }
+
+                            return (
+                                <button
+                                    key={dia}
+                                    onClick={() => seleccionarFecha(dia)}
+                                    className={`aspect-square border rounded p-1 text-sm transition-colors ${fondoClase}`}
+                                >
+                                    <div className="flex flex-col items-center justify-center h-full">
+                                        <span>{dia}</span>
+                                        {bolitaColor && (
+                                            <span className="inline-block w-1.5 h-1.5 mt-1 rounded-full">
+                                                <span className={`inline-block w-1.5 h-1.5 ${bolitaColor} rounded-full`}></span>
+                                            </span>
+                                        )}
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {fechaSeleccionada ? (
+                        <div className="border-t pt-4">
+                            <h4 className="font-semibold mb-3">
+                                Trabajos del {new Date(fechaSeleccionada + "T00:00:00").toLocaleDateString("es-MX", {
+                                    weekday: "long",
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                })}
+                            </h4>
+                            {trabajosDiaSeleccionado.length === 0 ? (
+                                <p className="text-gray-500 text-sm">No hay trabajos en esta fecha.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {trabajosDiaSeleccionado.map((trabajo) => (
+                                        <div
+                                            key={trabajo.id}
+                                            className={`border rounded p-3 ${
+                                                trabajo.tipoFecha === "finalizado"
+                                                    ? "bg-green-50 border-green-200"
+                                                    : "bg-red-50 border-red-200"
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className={`text-xs px-2 py-1 rounded font-medium ${
+                                                    trabajo.tipoFecha === "finalizado"
+                                                        ? "bg-green-200 text-green-800"
+                                                        : "bg-red-200 text-red-800"
+                                                }`}>
+                                                    {trabajo.tipoFecha === "finalizado" ? "Finalizado" : "Pendiente"}
+                                                </span>
+                                                <span className="font-semibold">
+                                                    {trabajo.treatment_name_display} - {trabajo.patient_name}
+                                                </span>
+                                            </div>
+                                            {trabajo.pieza && (
+                                                <div className="text-sm text-gray-600">Pieza: {trabajo.pieza}</div>
+                                            )}
+                                            <div className="text-xs text-gray-500 mt-1">
+                                                {trabajo.tipoFecha === "finalizado"
+                                                    ? `Finalizado el ${new Date(trabajo.completed_at).toLocaleString("es-MX")}`
+                                                    : `Fecha esperada: ${new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}`}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="text-center text-gray-500 text-sm py-4">
+                            Selecciona una fecha para ver tus trabajos
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );
