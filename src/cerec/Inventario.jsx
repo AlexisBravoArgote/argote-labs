@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
 import MovimientoModal from "./MovimientoModal";
 import NuevoTrabajoModal from "./NuevoTrabajoModal";
+import LaboratoristaNotaTrabajo from "./LaboratoristaNotaTrabajo";
 import DentalCityLogo from "../assets/DentalCity.png";
 
 export default function Inventario({ user, perfil, onIrAdmin }) {
@@ -53,6 +54,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
     const [trabajosNuevos, setTrabajosNuevos] = useState([]);
     const [trabajosPendientes, setTrabajosPendientes] = useState([]);
     const [historialTrabajos, setHistorialTrabajos] = useState([]);
+    const [notasLaboratorista, setNotasLaboratorista] = useState({});
     const [cargandoTrabajos, setCargandoTrabajos] = useState(false);
     const [reportes, setReportes] = useState([]);
     const [cargandoReportes, setCargandoReportes] = useState(false);
@@ -324,6 +326,10 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         if (!silent) setCargandoTrabajos(true);
 
         try {
+        let nuevosLista = [];
+        let pendientesLista = [];
+        let historialLista = [];
+
         // Cargar trabajos nuevos (enviados por doctor, sin iniciar)
         const { data: nuevos, error: errNuevos } = await supabase
             .from("jobs")
@@ -334,7 +340,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
 
         if (errNuevos) {
             console.error("Error cargando trabajos nuevos:", errNuevos);
-            setTrabajosNuevos([]);
+            nuevosLista = [];
         } else {
             const userIdsNuevos = [...new Set((nuevos || []).map(t => t.created_by))];
             const { data: perfilesNuevos } = await supabase
@@ -361,7 +367,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
             });
 
-            setTrabajosNuevos(nuevosConNombres);
+            nuevosLista = nuevosConNombres;
         }
 
         // Cargar trabajos en proceso
@@ -374,6 +380,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
 
         if (errPendientes) {
             console.error("Error cargando trabajos en proceso:", errPendientes);
+            pendientesLista = [];
         } else {
             // Mapear nombres de usuarios
             const userIds = [...new Set((pendientes || []).map(t => t.created_by))];
@@ -470,7 +477,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 });
             }
 
-            setTrabajosPendientes(trabajosConNombres);
+            pendientesLista = trabajosConNombres;
         }
 
         // Cargar historial de trabajos
@@ -483,6 +490,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
 
         if (errHistorial) {
             console.error("Error cargando historial de trabajos:", errHistorial);
+            historialLista = [];
         } else {
             const userIds = [...new Set((historial || []).flatMap(t => [t.created_by, t.completed_by]).filter(Boolean))];
             const { data: perfiles } = await supabase
@@ -558,12 +566,41 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 }
             }
 
-            setHistorialTrabajos(historialConNombres);
+            historialLista = historialConNombres;
         }
+
+        const allJobIds = [...new Set([...nuevosLista, ...pendientesLista, ...historialLista].map((t) => t.id))];
+        const notasMap = {};
+        if (allJobIds.length > 0) {
+            const { data: filasNotas, error: errNotas } = await supabase
+                .from("job_laboratorista_notes")
+                .select("job_id, content, updated_at, updated_by")
+                .in("job_id", allJobIds);
+            if (!errNotas && filasNotas) {
+                for (const row of filasNotas) {
+                    notasMap[row.job_id] = row;
+                }
+            } else if (errNotas && !String(errNotas.message || "").includes("does not exist") && !String(errNotas.message || "").includes("schema cache")) {
+                console.error("Error cargando notas del laboratorista:", errNotas);
+            }
+        }
+        setNotasLaboratorista(notasMap);
+        setTrabajosNuevos(nuevosLista);
+        setTrabajosPendientes(pendientesLista);
+        setHistorialTrabajos(historialLista);
 
         } finally {
             if (!silent) setCargandoTrabajos(false);
         }
+    }
+
+    function actualizarNotaLaboratorista(jobId, nota) {
+        setNotasLaboratorista((prev) => {
+            const next = { ...prev };
+            if (nota) next[jobId] = nota;
+            else delete next[jobId];
+            return next;
+        });
     }
 
     async function cargar(options = {}) {
@@ -732,6 +769,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, () => cargar({ silent: true }))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => cargar({ silent: true }))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'job_materials' }, () => cargar({ silent: true }))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'job_laboratorista_notes' }, () => cargarTrabajos({ silent: true }))
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
@@ -1376,6 +1414,12 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                                         {trabajo.notas_doctor}
                                                     </div>
                                                 )}
+                                                <LaboratoristaNotaTrabajo
+                                                    jobId={trabajo.id}
+                                                    user={user}
+                                                    nota={notasLaboratorista[trabajo.id] ?? null}
+                                                    onNotaChange={actualizarNotaLaboratorista}
+                                                />
                                             </div>
                                             <button
                                                 onClick={() => empezarTrabajo(trabajo.id)}
@@ -1494,6 +1538,12 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                             <div className="text-sm text-gray-700">{trabajo.notas_doctor}</div>
                                         </div>
                                     )}
+                                    <LaboratoristaNotaTrabajo
+                                        jobId={trabajo.id}
+                                        user={user}
+                                        nota={notasLaboratorista[trabajo.id] ?? null}
+                                        onNotaChange={actualizarNotaLaboratorista}
+                                    />
                                     {trabajo.materiales && trabajo.materiales.length > 0 && (
                                         <div className="text-sm mt-2 text-gray-600">
                                             <span className="font-medium">Materiales:</span>{" "}
@@ -1726,6 +1776,12 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                 )}
                                 {trabajo.fecha_espera && <> · <span className="text-blue-600 font-medium">Esperado: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}</span></>}
                             </div>
+                            <LaboratoristaNotaTrabajo
+                                jobId={trabajo.id}
+                                user={user}
+                                nota={notasLaboratorista[trabajo.id] ?? null}
+                                onNotaChange={actualizarNotaLaboratorista}
+                            />
                             {trabajo.materiales && trabajo.materiales.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-2">
                                     {trabajo.materiales.map((m, idx) => (

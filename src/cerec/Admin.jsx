@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../supabase";
+import LaboratoristaNotaTrabajo from "./LaboratoristaNotaTrabajo";
 
 const TAGS_DISPONIBLES = ["E.MAX", "RECICLADO", "SIRONA"];
 const ITEMS_POR_PAGINA = 4;
@@ -146,6 +147,7 @@ export default function Admin({ user, onVolver }) {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, () => { cargarItems(); cargarMovimientos(); })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => cargarTrabajos())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'job_materials' }, () => cargarTrabajos())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'job_laboratorista_notes' }, () => cargarTrabajos())
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
@@ -243,11 +245,26 @@ export default function Admin({ user, onVolver }) {
 
             const userMap = new Map((perfiles || []).map(p => [p.id, p.full_name || p.id]));
 
+            const jobIds = trabajosBase.map(t => t.id);
+            const notasPorJob = new Map();
+            if (jobIds.length > 0) {
+                const { data: filasNotas, error: errNotas } = await supabase
+                    .from("job_laboratorista_notes")
+                    .select("job_id, content, updated_at, updated_by")
+                    .in("job_id", jobIds);
+                if (!errNotas && filasNotas) {
+                    for (const row of filasNotas) {
+                        notasPorJob.set(row.job_id, row);
+                    }
+                }
+            }
+
             setTrabajos(
                 trabajosBase.map(t => ({
                     ...t,
                     created_by_name: userMap.get(t.created_by) || t.created_by,
-                    completed_by_name: t.completed_by ? (userMap.get(t.completed_by) || t.completed_by) : null
+                    completed_by_name: t.completed_by ? (userMap.get(t.completed_by) || t.completed_by) : null,
+                    lab_nota: notasPorJob.get(t.id) || null
                 }))
             );
         } catch (err) {
@@ -816,8 +833,8 @@ export default function Admin({ user, onVolver }) {
                 <>
                     <div className="grid gap-2 mt-3">
                         {trabajosPaginados.map((trabajo) => (
-                            <div key={trabajo.id} className="border rounded p-3 flex justify-between items-center gap-3">
-                                <div className="flex-1">
+                            <div key={trabajo.id} className="border rounded p-3 flex flex-col sm:flex-row justify-between items-stretch gap-3">
+                                <div className="flex-1 min-w-0">
                                     <div className="font-semibold">
                                         {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
                                         {trabajo.pieza && ` (Pieza: ${trabajo.pieza})`}
@@ -848,10 +865,16 @@ export default function Admin({ user, onVolver }) {
                                             <> · <span className="text-purple-600">Etapa: {trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}</span></>
                                         )}
                                     </div>
+                                    <LaboratoristaNotaTrabajo
+                                        jobId={trabajo.id}
+                                        user={user}
+                                        nota={trabajo.lab_nota ?? null}
+                                        soloLectura
+                                    />
                                 </div>
                                 <button
                                     onClick={() => borrarTrabajo(trabajo.id)}
-                                    className="border px-3 py-2 rounded text-red-600 hover:bg-red-50 text-sm whitespace-nowrap"
+                                    className="border px-3 py-2 rounded text-red-600 hover:bg-red-50 text-sm whitespace-nowrap self-start sm:self-center shrink-0"
                                 >
                                     Borrar
                                 </button>
