@@ -37,6 +37,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
     const [paginaMovs, setPaginaMovs] = useState(1);
     const [paginaTrabajos, setPaginaTrabajos] = useState(1);
     const [paginaTrabajosPendientes, setPaginaTrabajosPendientes] = useState(1);
+    const [paginaNotas, setPaginaNotas] = useState(1);
     const itemsPorPagina = 4;
 
     const [modalItem, setModalItem] = useState(null);
@@ -266,6 +267,39 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
     }, [trabajosPendientesFiltrados, paginaTrabajosPendientes]);
 
     const totalPaginasTrabajosPendientes = Math.ceil(trabajosPendientesFiltrados.length / itemsPorPagina);
+
+    /** Notas del laboratorista con texto, de la más reciente a la más antigua (por fecha de actualización de la nota). */
+    const notasActivasOrdenadas = useMemo(() => {
+        const trabajoPorId = new Map();
+        for (const t of trabajosNuevos) {
+            trabajoPorId.set(t.id, { trabajo: t, ubicacion: "nuevo" });
+        }
+        for (const t of trabajosPendientes) {
+            trabajoPorId.set(t.id, { trabajo: t, ubicacion: "proceso" });
+        }
+        for (const t of historialTrabajos) {
+            trabajoPorId.set(t.id, { trabajo: t, ubicacion: "historial" });
+        }
+        const filas = [];
+        for (const nota of Object.values(notasLaboratorista)) {
+            if (!nota?.content?.trim()) continue;
+            const meta = trabajoPorId.get(nota.job_id);
+            const ts = nota.updated_at ? new Date(nota.updated_at).getTime() : 0;
+            filas.push({ nota, trabajo: meta?.trabajo ?? null, ubicacion: meta?.ubicacion ?? null, ts });
+        }
+        filas.sort((a, b) => b.ts - a.ts);
+        return filas;
+    }, [notasLaboratorista, trabajosNuevos, trabajosPendientes, historialTrabajos]);
+
+    const totalPaginasNotas = Math.max(1, Math.ceil(notasActivasOrdenadas.length / itemsPorPagina));
+    const notasPaginadas = useMemo(() => {
+        const inicio = (paginaNotas - 1) * itemsPorPagina;
+        return notasActivasOrdenadas.slice(inicio, inicio + itemsPorPagina);
+    }, [notasActivasOrdenadas, paginaNotas]);
+
+    useEffect(() => {
+        if (paginaNotas > totalPaginasNotas) setPaginaNotas(totalPaginasNotas);
+    }, [totalPaginasNotas, paginaNotas]);
 
     async function cargarMovimientos(offset = 0, limit = 50) {
         try {
@@ -1294,9 +1328,10 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                 { v: "trabajos", label: "Trabajos", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" },
                                 { v: "inventario", label: "Inventario", icon: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" },
                                 { v: "historial", label: "Historial", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
+                                { v: "notas", label: "Notas", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
                                 { v: "reportes", label: "Reportes", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" },
                             ].map(tab => (
-                                <button key={tab.v} onClick={() => setSeccion(tab.v)}
+                                <button key={tab.v} onClick={() => { setSeccion(tab.v); if (tab.v === "notas") setPaginaNotas(1); }}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${seccion === tab.v ? "bg-white text-blue-700 shadow-sm" : "text-gray-600 hover:text-gray-800"}`}>
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
@@ -1346,9 +1381,10 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                         { v: "trabajos", label: "Trabajos" },
                         { v: "inventario", label: "Inventario" },
                         { v: "historial", label: "Historial" },
+                        { v: "notas", label: "Notas" },
                         { v: "reportes", label: "Reportes" },
                     ].map(tab => (
-                        <button key={tab.v} onClick={() => setSeccion(tab.v)}
+                        <button key={tab.v} onClick={() => { setSeccion(tab.v); if (tab.v === "notas") setPaginaNotas(1); }}
                             className={`flex-1 py-3 text-xs font-medium text-center transition-colors ${seccion === tab.v ? "text-blue-700 border-b-2 border-blue-600 bg-blue-50/50" : "text-gray-500"}`}>
                             {tab.label}
                         </button>
@@ -2044,6 +2080,99 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                     obtenerNombreTratamiento={obtenerNombreTratamiento}
                 />
             )}
+
+                {/* ─── TAB: NOTAS (laboratorista) ───────────────── */}
+                {seccion === "notas" && (
+                <div className="space-y-6">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-800">Notas del laboratorista</h2>
+                        <p className="text-sm text-gray-500 mt-1">
+                            {notasActivasOrdenadas.length} nota{notasActivasOrdenadas.length !== 1 ? "s" : ""} activa{notasActivasOrdenadas.length !== 1 ? "s" : ""} · de la más reciente a la más antigua
+                        </p>
+                    </div>
+                    {cargandoTrabajos ? (
+                        <div className="text-center py-12">
+                            <div className="w-10 h-10 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin mx-auto mb-3"></div>
+                            <p className="text-gray-500 text-sm">Cargando notas…</p>
+                        </div>
+                    ) : notasActivasOrdenadas.length === 0 ? (
+                        <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
+                            <svg className="w-14 h-14 text-violet-200 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <p className="text-gray-600 font-medium">No hay notas activas</p>
+                            <p className="text-gray-400 text-sm mt-1">Las notas con texto aparecerán aquí ordenadas por la última actualización.</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="grid gap-4">
+                                {notasPaginadas.map(({ nota, trabajo, ubicacion }) => {
+                                    const badgeNuevo = ubicacion === "nuevo" ? "bg-amber-100 text-amber-800" : ubicacion === "proceso" ? "bg-blue-100 text-blue-800" : ubicacion === "historial" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700";
+                                    const labelUbicacion = ubicacion === "nuevo" ? "Trabajo nuevo" : ubicacion === "proceso" ? "En proceso" : ubicacion === "historial" ? "Finalizado" : "Trabajo";
+                                    return (
+                                        <div key={nota.job_id} className="bg-white rounded-2xl border border-violet-100 shadow-sm p-5">
+                                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                                                <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${badgeNuevo}`}>{labelUbicacion}</span>
+                                                {trabajo && (
+                                                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${obtenerTagTrabajo(trabajo) === "EXOCAD" ? "bg-orange-100 text-orange-700" : obtenerTagTrabajo(trabajo) === "CEREC" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>
+                                                        {obtenerTagTrabajo(trabajo)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {trabajo ? (
+                                                <h3 className="text-lg font-bold text-gray-800">
+                                                    {obtenerNombreTratamiento(trabajo)} — {trabajo.patient_name}
+                                                    {trabajo.pieza && <span className="text-gray-500 font-normal text-base"> (Pieza: {trabajo.pieza})</span>}
+                                                </h3>
+                                            ) : (
+                                                <h3 className="text-lg font-bold text-gray-800">Trabajo (referencia)</h3>
+                                            )}
+                                            {trabajo?.doctor && (
+                                                <div className="text-sm text-gray-600 mt-0.5">Dr. {trabajo.doctor}</div>
+                                            )}
+                                            <div className="text-xs text-gray-500 mt-1">
+                                                Nota actualizada:{" "}
+                                                {nota.updated_at
+                                                    ? new Date(nota.updated_at).toLocaleString("es-MX")
+                                                    : "—"}
+                                            </div>
+                                            <LaboratoristaNotaTrabajo
+                                                jobId={nota.job_id}
+                                                user={user}
+                                                nota={notasLaboratorista[nota.job_id] ?? null}
+                                                onNotaChange={actualizarNotaLaboratorista}
+                                            />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {totalPaginasNotas > 1 && (
+                                <div className="flex items-center justify-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setPaginaNotas((p) => Math.max(1, p - 1))}
+                                        disabled={paginaNotas === 1}
+                                        className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        Anterior
+                                    </button>
+                                    <span className="text-sm text-gray-600">
+                                        {paginaNotas} / {totalPaginasNotas}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPaginaNotas((p) => Math.min(totalPaginasNotas, p + 1))}
+                                        disabled={paginaNotas === totalPaginasNotas}
+                                        className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        Siguiente
+                                    </button>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+                )}
 
                 {/* ─── TAB: REPORTES ─────────────────────────────── */}
                 {seccion === "reportes" && (
