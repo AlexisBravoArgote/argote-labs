@@ -69,13 +69,17 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         const nombres = {
             "corona_implante": "Corona sobre implante",
             "guia_quirurgica": "Guía quirúrgica",
-            "guardas": "Guardas",
+            "guardas": "Guarda funcional",
             "modelo_ortodoncia": "Modelo de ortodoncia",
+            "modelos_guarda_acetato": "Modelo para guarda de acetato",
+            "rpa": "RPA",
+            "encerado_digital": "Encerado digital",
+            "provisional_pmma": "Provisional PMMA",
             "diseno_sonrisa": "Diseño de sonrisa",
             "rehabilitacion_completa": "Rehabilitación completa",
-            "coronas": "Coronas",
-            "carillas": "Carillas",
-            "incrustaciones": "Incrustaciones",
+            "coronas": "Corona",
+            "carillas": "Carilla",
+            "incrustaciones": "Incrustación",
             "otra": "Otro"
         };
         
@@ -86,8 +90,8 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
     function obtenerTagTrabajo(trabajo) {
         const tipo = trabajo.treatment_type;
         
-        // EXOCAD: guardas, diseño de sonrisa, guía quirúrgica, modelos de ortodoncia
-        if (["guardas", "diseno_sonrisa", "guia_quirurgica", "modelo_ortodoncia"].includes(tipo)) {
+        // EXOCAD: guarda funcional, diseño, guía, modelos, encerado digital, modelos acetato (RPA → CEREC)
+        if (["guardas", "diseno_sonrisa", "guia_quirurgica", "modelo_ortodoncia", "modelos_guarda_acetato", "encerado_digital"].includes(tipo)) {
             return "EXOCAD";
         }
         
@@ -926,7 +930,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
     }
 
     function necesitaFresado(trabajo) {
-        const tiposConFresado = ["corona_implante", "coronas", "carillas", "incrustaciones", "diseno_sonrisa", "rehabilitacion_completa", "otra"];
+        const tiposConFresado = ["corona_implante", "coronas", "carillas", "incrustaciones", "diseno_sonrisa", "rehabilitacion_completa", "provisional_pmma", "otra"];
         return tiposConFresado.includes(trabajo.treatment_type);
     }
 
@@ -1628,15 +1632,19 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                             <select value={filtroTratamientoHistorial} onChange={(e) => { setFiltroTratamientoHistorial(e.target.value); setPaginaTrabajos(1); }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white">
                                 <option value="">Todos</option>
-                                <option value="carillas">Carillas</option>
+                                <option value="carillas">Carilla</option>
                                 <option value="corona_implante">Corona sobre implante</option>
-                                <option value="coronas">Coronas</option>
+                                <option value="coronas">Corona</option>
                                 <option value="diseno_sonrisa">Diseño de sonrisa</option>
-                                <option value="guardas">Guardas</option>
+                                <option value="guardas">Guarda funcional</option>
                                 <option value="guia_quirurgica">Guía quirúrgica</option>
-                                <option value="incrustaciones">Incrustaciones</option>
+                                <option value="incrustaciones">Incrustación</option>
                                 <option value="modelo_ortodoncia">Modelo de ortodoncia</option>
-                                <option value="otra">Otra</option>
+                                <option value="modelos_guarda_acetato">Modelo para guarda de acetato</option>
+                                <option value="rpa">RPA</option>
+                                <option value="encerado_digital">Encerado digital</option>
+                                <option value="provisional_pmma">Provisional PMMA</option>
+                                <option value="otra">Otro</option>
                                 <option value="rehabilitacion_completa">Rehabilitación completa</option>
                             </select>
                         </div>

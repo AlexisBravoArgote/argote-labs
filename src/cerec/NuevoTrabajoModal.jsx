@@ -1,15 +1,19 @@
 import { useState, useEffect, useMemo } from "react";
 
 const TIPOS_TRATAMIENTO = [
-    { value: "carillas", label: "Carillas", requiereMateriales: false, fresadoDespues: true },
+    { value: "carillas", label: "Carilla", requiereMateriales: false, fresadoDespues: true },
     { value: "corona_implante", label: "Corona sobre implante", requiereMateriales: false, fresadoDespues: true },
-    { value: "coronas", label: "Coronas", requiereMateriales: false, fresadoDespues: true },
+    { value: "coronas", label: "Corona", requiereMateriales: false, fresadoDespues: true },
     { value: "diseno_sonrisa", label: "Diseño de sonrisa", requiereMateriales: false, fresadoDespues: true },
-    { value: "guardas", label: "Guardas", requiereMateriales: false },
+    { value: "guardas", label: "Guarda funcional", requiereMateriales: false },
     { value: "guia_quirurgica", label: "Guía quirúrgica", requiereMateriales: false },
-    { value: "incrustaciones", label: "Incrustaciones", requiereMateriales: false, fresadoDespues: true },
+    { value: "incrustaciones", label: "Incrustación", requiereMateriales: false, fresadoDespues: true },
     { value: "modelo_ortodoncia", label: "Modelo de ortodoncia", requiereMateriales: false },
-    { value: "otra", label: "Otra", requiereMateriales: false, fresadoDespues: true, requiereNombre: true },
+    { value: "modelos_guarda_acetato", label: "Modelo para guarda de acetato", requiereMateriales: false },
+    { value: "rpa", label: "RPA", requiereMateriales: false },
+    { value: "encerado_digital", label: "Encerado digital", requiereMateriales: false },
+    { value: "provisional_pmma", label: "Provisional PMMA", requiereMateriales: false, fresadoDespues: true },
+    { value: "otra", label: "Otro", requiereMateriales: false, fresadoDespues: true, requiereNombre: true },
     { value: "rehabilitacion_completa", label: "Rehabilitación completa", requiereMateriales: false, fresadoDespues: true },
 ];
 

@@ -4,15 +4,19 @@ import ModalEnviarTrabajo from "./ModalEnviarTrabajo";
 import DentalCityLogo from "../assets/DentalCity.png";
 
 const TIPOS_TRATAMIENTO = [
-    { value: "carillas", label: "Carillas" },
+    { value: "carillas", label: "Carilla" },
     { value: "corona_implante", label: "Corona sobre implante" },
-    { value: "coronas", label: "Coronas" },
+    { value: "coronas", label: "Corona" },
     { value: "diseno_sonrisa", label: "Diseño de sonrisa" },
-    { value: "guardas", label: "Guardas" },
+    { value: "guardas", label: "Guarda funcional" },
     { value: "guia_quirurgica", label: "Guía quirúrgica" },
-    { value: "incrustaciones", label: "Incrustaciones" },
+    { value: "incrustaciones", label: "Incrustación" },
     { value: "modelo_ortodoncia", label: "Modelo de ortodoncia" },
-    { value: "otra", label: "Otra", requiereNombre: true },
+    { value: "modelos_guarda_acetato", label: "Modelo para guarda de acetato" },
+    { value: "rpa", label: "RPA" },
+    { value: "encerado_digital", label: "Encerado digital" },
+    { value: "provisional_pmma", label: "Provisional PMMA" },
+    { value: "otra", label: "Otro", requiereNombre: true },
     { value: "rehabilitacion_completa", label: "Rehabilitación completa" },
 ];
 

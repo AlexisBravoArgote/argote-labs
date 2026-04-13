@@ -61,13 +61,17 @@ export default function Admin({ user, onVolver }) {
         const nombres = {
             "corona_implante": "Corona sobre implante",
             "guia_quirurgica": "Guía quirúrgica",
-            "guardas": "Guardas",
+            "guardas": "Guarda funcional",
             "modelo_ortodoncia": "Modelo de ortodoncia",
+            "modelos_guarda_acetato": "Modelo para guarda de acetato",
+            "rpa": "RPA",
+            "encerado_digital": "Encerado digital",
+            "provisional_pmma": "Provisional PMMA",
             "diseno_sonrisa": "Diseño de sonrisa",
             "rehabilitacion_completa": "Rehabilitación completa",
-            "coronas": "Coronas",
-            "carillas": "Carillas",
-            "incrustaciones": "Incrustaciones",
+            "coronas": "Corona",
+            "carillas": "Carilla",
+            "incrustaciones": "Incrustación",
             "otra": "Otro"
         };
         
@@ -338,13 +342,17 @@ export default function Admin({ user, onVolver }) {
                 const nombres = {
                     "corona_implante": "Corona sobre implante",
                     "guia_quirurgica": "Guía quirúrgica",
-                    "guardas": "Guardas",
+                    "guardas": "Guarda funcional",
                     "modelo_ortodoncia": "Modelo de ortodoncia",
+                    "modelos_guarda_acetato": "Modelo para guarda de acetato",
+                    "rpa": "RPA",
+                    "encerado_digital": "Encerado digital",
+                    "provisional_pmma": "Provisional PMMA",
                     "diseno_sonrisa": "Diseño de sonrisa",
                     "rehabilitacion_completa": "Rehabilitación completa",
-                    "coronas": "Coronas",
-                    "carillas": "Carillas",
-                    "incrustaciones": "Incrustaciones",
+                    "coronas": "Corona",
+                    "carillas": "Carilla",
+                    "incrustaciones": "Incrustación",
                     "otra": "Otro"
                 };
                 return nombres[trabajo.treatment_type] || trabajo.treatment_type;
