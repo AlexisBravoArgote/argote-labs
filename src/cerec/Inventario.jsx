@@ -1002,7 +1002,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
     }
 
     function necesitaFresado(trabajo) {
-        const tiposConFresado = ["corona_implante", "coronas", "carillas", "incrustaciones", "diseno_sonrisa", "rehabilitacion_completa", "provisional_pmma", "otra"];
+        const tiposConFresado = ["corona_implante", "coronas", "carillas", "incrustaciones", "diseno_sonrisa", "rehabilitacion_completa", "provisional_pmma", "rpa", "otra"];
         return tiposConFresado.includes(trabajo.treatment_type);
     }
 
