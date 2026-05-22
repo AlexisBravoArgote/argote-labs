@@ -4,6 +4,7 @@ import MovimientoModal from "./MovimientoModal";
 import NuevoTrabajoModal from "./NuevoTrabajoModal";
 import LaboratoristaNotaTrabajo from "./LaboratoristaNotaTrabajo";
 import DentalCityLogo from "../assets/DentalCity.png";
+import { DOCTORES_CEREC } from "./doctoresCerec";
 
 export default function Inventario({
     user,
@@ -39,7 +40,7 @@ export default function Inventario({
     const [filtroTratamientoHistorial, setFiltroTratamientoHistorial] = useState(""); // tipo de tratamiento
 
     const TAGS_DISPONIBLES = ["E.MAX", "RECICLADO", "SIRONA"];
-    const DOCTORES = ["Alvaro", "Andrea", "Angulo", "Claudia", "Enrique", "Fierro", "Gustavo", "Ivan", "Linda", "Nathali", "Otro"];
+    const DOCTORES = DOCTORES_CEREC;
 
     // Paginación
     const [paginaItems, setPaginaItems] = useState(1);

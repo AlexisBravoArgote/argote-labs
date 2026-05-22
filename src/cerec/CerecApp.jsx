@@ -4,6 +4,7 @@ import Login from "./Login";
 import Inventario from "./Inventario";
 import Admin from "./Admin";
 import DoctorView from "./DoctorView";
+import AsistenteDentalView from "./AsistenteDentalView";
 import LogisticaView from "./LogisticaView";
 
 export default function CerecApp() {
@@ -112,6 +113,9 @@ export default function CerecApp() {
 
     // Si el usuario es de logística, mostrar vista de logística
     if (perfil?.role === "logistica") return <LogisticaView user={user} perfil={perfil} />;
+
+    // Asistente dental: portal como doctor pero elige doctor al enviar trabajos
+    if (perfil?.role === "asistente_dental") return <AsistenteDentalView user={user} perfil={perfil} />;
 
     // Si el usuario es doctor, mostrar vista de doctor
     if (perfil?.role === "doctor") return <DoctorView user={user} perfil={perfil} />;

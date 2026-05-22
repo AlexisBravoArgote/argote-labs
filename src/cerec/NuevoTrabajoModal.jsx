@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { DOCTORES_CEREC } from "./doctoresCerec";
 
 const TIPOS_TRATAMIENTO = [
     { value: "carillas", label: "Carilla", requiereMateriales: false, fresadoDespues: true },
@@ -16,8 +17,6 @@ const TIPOS_TRATAMIENTO = [
     { value: "otra", label: "Otro", requiereMateriales: false, fresadoDespues: true, requiereNombre: true },
     { value: "rehabilitacion_completa", label: "Rehabilitación completa", requiereMateriales: false, fresadoDespues: true },
 ];
-
-const DOCTORES = ["Alvaro", "Andrea", "Angulo", "Claudia", "Enrique", "Fierro", "Gustavo", "Ivan", "Linda", "Nathali", "Otro"];
 
 export default function NuevoTrabajoModal({ items, onClose, onConfirm }) {
     const [tipoTratamiento, setTipoTratamiento] = useState("");
@@ -212,7 +211,7 @@ export default function NuevoTrabajoModal({ items, onClose, onConfirm }) {
                             className="border rounded p-2 w-full mt-1"
                         >
                             <option value="">Selecciona un doctor</option>
-                            {DOCTORES.map(doc => (
+                            {DOCTORES_CEREC.map(doc => (
                                 <option key={doc} value={doc}>
                                     {doc}
                                 </option>

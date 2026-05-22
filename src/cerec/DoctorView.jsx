@@ -22,7 +22,7 @@ const TIPOS_TRATAMIENTO = [
 
 const TAGS_DISPONIBLES = ["E.MAX", "RECICLADO", "SIRONA"];
 
-export default function DoctorView({ user, perfil }) {
+export default function DoctorView({ user, perfil, esAsistenteDental = false }) {
     const [vista, setVista] = useState("trabajos");
     const [trabajos, setTrabajos] = useState([]);
     const [items, setItems] = useState([]);
@@ -204,7 +204,16 @@ export default function DoctorView({ user, perfil }) {
         setError("");
         setErrorModalEnviar("");
 
-        const nombreDoctor = perfil?.full_name || "Doctor";
+        const nombreDoctor = esAsistenteDental
+            ? (datosTrabajo.doctor || "Sin doctor")
+            : (perfil?.full_name || "Doctor");
+
+        if (esAsistenteDental && !datosTrabajo.doctor) {
+            const msg = "Por favor selecciona el doctor.";
+            setError(msg);
+            setErrorModalEnviar(msg);
+            return;
+        }
 
         try {
             // No llamar refreshSession aquí siempre: al volver de otra pestaña chocaba con otros refrescos
@@ -356,8 +365,10 @@ export default function DoctorView({ user, perfil }) {
                             <div className="flex items-center gap-3">
                                 <img src={DentalCityLogo} alt="Dental City" className="w-10 h-10 rounded-xl object-contain shadow-sm" />
                                 <div>
-                                    <div className="text-lg font-bold text-gray-800">Portal Doctor</div>
-                                    <div className="text-xs text-gray-500 hidden sm:block">{perfil?.full_name ?? "Doctor"}</div>
+                                    <div className="text-lg font-bold text-gray-800">
+                                        {esAsistenteDental ? "Portal Asistente Dental" : "Portal Doctor"}
+                                    </div>
+                                    <div className="text-xs text-gray-500 hidden sm:block">{perfil?.full_name ?? (esAsistenteDental ? "Asistente" : "Doctor")}</div>
                                 </div>
                             </div>
                             <div className="hidden sm:flex items-center gap-1 bg-gray-100 rounded-xl p-1">
@@ -827,6 +838,7 @@ export default function DoctorView({ user, perfil }) {
             {mostrarModalEnviar && (
                 <ModalEnviarTrabajo
                     perfil={perfil}
+                    seleccionarDoctor={esAsistenteDental}
                     errorEnvio={errorModalEnviar}
                     onClose={() => { setMostrarModalEnviar(false); setErrorModalEnviar(""); }}
                     onConfirm={enviarTrabajo}

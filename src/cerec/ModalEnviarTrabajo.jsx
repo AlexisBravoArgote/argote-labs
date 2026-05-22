@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { DOCTORES_CEREC } from "./doctoresCerec";
 
 const TIPOS_TRATAMIENTO = [
     { value: "carillas", label: "Carilla" },
@@ -17,12 +18,14 @@ const TIPOS_TRATAMIENTO = [
     { value: "rehabilitacion_completa", label: "Rehabilitación completa" },
 ];
 
-export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEnvio = "" }) {
+export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEnvio = "", seleccionarDoctor = false }) {
     const [tipoTratamiento, setTipoTratamiento] = useState("");
     const [nombreTratamiento, setNombreTratamiento] = useState("");
     const [nombrePaciente, setNombrePaciente] = useState("");
     const [pieza, setPieza] = useState("");
     const [color, setColor] = useState("");
+    const [doctor, setDoctor] = useState("");
+    const [doctorOtro, setDoctorOtro] = useState("");
     const [fechaEspera, setFechaEspera] = useState("");
     const [notasDoctor, setNotasDoctor] = useState("");
     const [error, setError] = useState("");
@@ -54,6 +57,16 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEn
             return;
         }
 
+        if (seleccionarDoctor && !doctor) {
+            setError("Por favor selecciona el doctor.");
+            return;
+        }
+
+        if (seleccionarDoctor && doctor === "Otro" && !doctorOtro.trim()) {
+            setError("Por favor ingresa el nombre del doctor.");
+            return;
+        }
+
         if (!fechaEspera) {
             setError("Por favor selecciona la fecha de espera.");
             return;
@@ -66,6 +79,10 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEn
             fechaEsperaFormateada = fechaLocal.toISOString().split('T')[0];
         }
 
+        const nombreDoctorFinal = seleccionarDoctor
+            ? (doctor === "Otro" ? doctorOtro.trim() : doctor)
+            : null;
+
         setEnviando(true);
         try {
             await Promise.resolve(
@@ -75,6 +92,7 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEn
                     patient_name: nombrePaciente.trim(),
                     pieza: pieza.trim() || null,
                     color: color.trim() || null,
+                    doctor: nombreDoctorFinal,
                     fecha_espera: fechaEsperaFormateada,
                     notas_doctor: notasDoctor.trim() || null,
                 })
@@ -101,9 +119,53 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEn
                 <div className="grid gap-4">
                     <div className="bg-blue-50 border border-blue-200 rounded p-3">
                         <p className="text-sm text-blue-800">
-                            <strong>Doctor:</strong> {perfil?.full_name || "Doctor"}
+                            {seleccionarDoctor ? (
+                                <>
+                                    <strong>Asistente dental:</strong> {perfil?.full_name || "Asistente"}
+                                </>
+                            ) : (
+                                <>
+                                    <strong>Doctor:</strong> {perfil?.full_name || "Doctor"}
+                                </>
+                            )}
                         </p>
                     </div>
+
+                    {seleccionarDoctor && (
+                        <>
+                            <label className="text-sm font-medium">
+                                Doctor *
+                                <select
+                                    value={doctor}
+                                    onChange={(e) => {
+                                        setDoctor(e.target.value);
+                                        if (e.target.value !== "Otro") setDoctorOtro("");
+                                    }}
+                                    className="border rounded p-2 w-full mt-1"
+                                >
+                                    <option value="">Selecciona un doctor</option>
+                                    {DOCTORES_CEREC.map((doc) => (
+                                        <option key={doc} value={doc}>
+                                            {doc}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            {doctor === "Otro" && (
+                                <label className="text-sm font-medium">
+                                    Nombre del doctor *
+                                    <input
+                                        type="text"
+                                        value={doctorOtro}
+                                        onChange={(e) => setDoctorOtro(e.target.value)}
+                                        placeholder="Escribe el nombre del doctor"
+                                        className="border rounded p-2 w-full mt-1"
+                                    />
+                                </label>
+                            )}
+                        </>
+                    )}
 
                     <label className="text-sm font-medium">
                         Tipo de tratamiento *
