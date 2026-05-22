@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../supabase";
 import DentalCityLogo from "../assets/DentalCity.png";
+import Inventario from "./Inventario";
 
 // ─── Modal para agregar/editar item ────────────────────────────────
 function ItemModal({ item, categories, onClose, onSave }) {
@@ -352,7 +353,7 @@ export default function LogisticaView({ user, perfil }) {
     const [error, setError] = useState("");
 
     // UI State
-    const [vista, setVista] = useState("dashboard"); // dashboard, inventario, movimientos
+    const [vista, setVista] = useState("dashboard"); // dashboard, inventario, movimientos, cerec_trabajos, cerec_historial
     const [busqueda, setBusqueda] = useState("");
     const [filtroCategoria, setFiltroCategoria] = useState("todas");
     const [filtroStock, setFiltroStock] = useState("todos"); // todos, bajo, ok, agotado
@@ -464,11 +465,13 @@ export default function LogisticaView({ user, perfil }) {
                                 <span className="text-lg font-bold text-gray-800 hidden sm:block">Logística</span>
                             </div>
 
-                            <div className="hidden sm:flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+                            <div className="hidden lg:flex items-center gap-1 bg-gray-100 rounded-xl p-1 overflow-x-auto max-w-[52vw]">
                                 {[
                                     { v: "dashboard", label: "Dashboard", icon: "M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zm12 0a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" },
                                     { v: "inventario", label: "Inventario", icon: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" },
-                                    { v: "movimientos", label: "Historial", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" },
+                                    { v: "movimientos", label: "Movimientos", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" },
+                                    { v: "cerec_trabajos", label: "Trabajos CEREC", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" },
+                                    { v: "cerec_historial", label: "Historial CEREC", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
                                 ].map(tab => (
                                     <button key={tab.v} onClick={() => setVista(tab.v)}
                                         className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${vista === tab.v ? "bg-white text-emerald-700 shadow-sm" : "text-gray-600 hover:text-gray-800"
@@ -499,14 +502,16 @@ export default function LogisticaView({ user, perfil }) {
                 </div>
 
                 {/* Mobile tabs */}
-                <div className="sm:hidden border-t border-gray-100 flex">
+                <div className="lg:hidden border-t border-gray-100 flex overflow-x-auto">
                     {[
                         { v: "dashboard", label: "Dashboard" },
                         { v: "inventario", label: "Inventario" },
-                        { v: "movimientos", label: "Historial" },
+                        { v: "movimientos", label: "Movimientos" },
+                        { v: "cerec_trabajos", label: "Trabajos" },
+                        { v: "cerec_historial", label: "Hist. CEREC" },
                     ].map(tab => (
                         <button key={tab.v} onClick={() => setVista(tab.v)}
-                            className={`flex-1 py-3 text-xs font-medium text-center transition-colors ${vista === tab.v ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50/50" : "text-gray-500"}`}>
+                            className={`flex-shrink-0 min-w-[4.5rem] px-2 py-3 text-xs font-medium text-center transition-colors ${vista === tab.v ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50/50" : "text-gray-500"}`}>
                             {tab.label}
                         </button>
                     ))}
@@ -829,6 +834,28 @@ export default function LogisticaView({ user, perfil }) {
                             </div>
                         )}
                     </div>
+                )}
+
+                {/* ─── TRABAJOS CEREC (en proceso) ─────────────── */}
+                {vista === "cerec_trabajos" && (
+                    <Inventario
+                        user={user}
+                        perfil={perfil}
+                        integradoEnLogistica
+                        seccionForzada="trabajos"
+                        puedeCrearTrabajos={false}
+                    />
+                )}
+
+                {/* ─── HISTORIAL TRABAJOS CEREC ────────────────── */}
+                {vista === "cerec_historial" && (
+                    <Inventario
+                        user={user}
+                        perfil={perfil}
+                        integradoEnLogistica
+                        seccionForzada="historial"
+                        puedeCrearTrabajos={false}
+                    />
                 )}
 
                 {/* ─── MOVIMIENTOS (HISTORIAL) ─────────────────── */}

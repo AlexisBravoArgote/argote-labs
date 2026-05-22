@@ -5,7 +5,16 @@ import NuevoTrabajoModal from "./NuevoTrabajoModal";
 import LaboratoristaNotaTrabajo from "./LaboratoristaNotaTrabajo";
 import DentalCityLogo from "../assets/DentalCity.png";
 
-export default function Inventario({ user, perfil, onIrAdmin }) {
+export default function Inventario({
+    user,
+    perfil,
+    onIrAdmin,
+    integradoEnLogistica = false,
+    seccionForzada = null,
+    puedeCrearTrabajos = true,
+}) {
+    const puedeGestionarTrabajos = !integradoEnLogistica;
+
     const [items, setItems] = useState([]);
     const [movs, setMovs] = useState([]);
     const [error, setError] = useState("");
@@ -63,7 +72,12 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
     const [mostrarModalCalendario, setMostrarModalCalendario] = useState(false);
     const [trabajosCalendario, setTrabajosCalendario] = useState([]);
     const [cargandoCalendario, setCargandoCalendario] = useState(false);
-    const [seccion, setSeccion] = useState("trabajos");
+    const [seccion, setSeccion] = useState(seccionForzada || "trabajos");
+    const seccionVisible = seccionForzada ?? seccion;
+
+    useEffect(() => {
+        if (seccionForzada) setSeccion(seccionForzada);
+    }, [seccionForzada]);
 
     // Función para obtener nombre de tratamiento (debe estar antes de los useMemo)
     function obtenerNombreTratamiento(trabajo) {
@@ -643,6 +657,11 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
         if (!silent) setCargando(true);
 
         try {
+            if (integradoEnLogistica) {
+                await cargarTrabajos({ silent });
+                return;
+            }
+
             const { data: it, error: iErr } = await supabase
                 .from("items")
                 .select("id, name, category, unit, current_qty, image_url, tags")
@@ -1308,8 +1327,9 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className={integradoEnLogistica ? "" : "min-h-screen bg-gray-50"}>
             {/* ─── Sticky Navbar ──────────────────────────────────── */}
+            {!integradoEnLogistica && (
             <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
                     <div className="flex items-center justify-between h-16">
@@ -1332,7 +1352,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                 { v: "reportes", label: "Reportes", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" },
                             ].map(tab => (
                                 <button key={tab.v} onClick={() => { setSeccion(tab.v); if (tab.v === "notas") setPaginaNotas(1); }}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${seccion === tab.v ? "bg-white text-blue-700 shadow-sm" : "text-gray-600 hover:text-gray-800"}`}>
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${seccionVisible === tab.v ? "bg-white text-blue-700 shadow-sm" : "text-gray-600 hover:text-gray-800"}`}>
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
                                     </svg>
@@ -1385,15 +1405,16 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                         { v: "reportes", label: "Reportes" },
                     ].map(tab => (
                         <button key={tab.v} onClick={() => { setSeccion(tab.v); if (tab.v === "notas") setPaginaNotas(1); }}
-                            className={`flex-1 py-3 text-xs font-medium text-center transition-colors ${seccion === tab.v ? "text-blue-700 border-b-2 border-blue-600 bg-blue-50/50" : "text-gray-500"}`}>
+                            className={`flex-1 py-3 text-xs font-medium text-center transition-colors ${seccionVisible === tab.v ? "text-blue-700 border-b-2 border-blue-600 bg-blue-50/50" : "text-gray-500"}`}>
                             {tab.label}
                         </button>
                     ))}
                 </div>
             </nav>
+            )}
 
             {/* ─── Main Content ───────────────────────────────────── */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+            <main className={integradoEnLogistica ? "" : "max-w-7xl mx-auto px-4 sm:px-6 py-6"}>
                 {error && (
                     <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
                         <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
@@ -1405,7 +1426,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 )}
 
             {/* ─── TAB: TRABAJOS ─────────────────────────────── */}
-                {seccion === "trabajos" && (
+                {seccionVisible === "trabajos" && (
                 <div className="space-y-4">
                     <div className="bg-white rounded-2xl border border-amber-200 p-5">
                         <div className="flex items-center justify-between gap-3 mb-3">
@@ -1455,14 +1476,17 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                                     user={user}
                                                     nota={notasLaboratorista[trabajo.id] ?? null}
                                                     onNotaChange={actualizarNotaLaboratorista}
+                                                    soloLectura={!puedeGestionarTrabajos}
                                                 />
                                             </div>
-                                            <button
-                                                onClick={() => empezarTrabajo(trabajo.id)}
-                                                className="px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 text-sm font-medium transition-colors shadow-sm"
-                                            >
-                                                Empezar
-                                            </button>
+                                            {puedeGestionarTrabajos && (
+                                                <button
+                                                    onClick={() => empezarTrabajo(trabajo.id)}
+                                                    className="px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 text-sm font-medium transition-colors shadow-sm"
+                                                >
+                                                    Empezar
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -1475,13 +1499,15 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                             <h2 className="text-2xl font-bold text-gray-800">Trabajos en proceso</h2>
                             <p className="text-sm text-gray-500">{trabajosPendientes.length} trabajo{trabajosPendientes.length !== 1 ? "s" : ""} activo{trabajosPendientes.length !== 1 ? "s" : ""}</p>
                         </div>
-                        <button
-                            onClick={() => setMostrarModalTrabajo(true)}
-                            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl font-medium hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md shadow-blue-500/20 flex items-center gap-2"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                            Empezar trabajo
-                        </button>
+                        {puedeGestionarTrabajos && puedeCrearTrabajos && (
+                            <button
+                                onClick={() => setMostrarModalTrabajo(true)}
+                                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl font-medium hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md shadow-blue-500/20 flex items-center gap-2"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                Empezar trabajo
+                            </button>
+                        )}
                     </div>
 
             {cargandoTrabajos ? (
@@ -1493,7 +1519,9 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
                     <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
                     <p className="text-gray-500 text-lg mb-1">No hay trabajos en proceso</p>
-                    <p className="text-gray-400 text-sm">Empieza un nuevo trabajo para verlo aquí</p>
+                    <p className="text-gray-400 text-sm">
+                        {puedeGestionarTrabajos ? "Empieza un nuevo trabajo para verlo aquí" : "No hay trabajos activos en este momento"}
+                    </p>
                 </div>
             ) : (
                 <>
@@ -1579,6 +1607,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                         user={user}
                                         nota={notasLaboratorista[trabajo.id] ?? null}
                                         onNotaChange={actualizarNotaLaboratorista}
+                                        soloLectura={!puedeGestionarTrabajos}
                                     />
                                     {trabajo.materiales && trabajo.materiales.length > 0 && (
                                         <div className="text-sm mt-2 text-gray-600">
@@ -1591,6 +1620,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                         </div>
                                     )}
                                 </div>
+                                {puedeGestionarTrabajos && (
                                 <div className="flex flex-wrap gap-2 shrink-0">
                                     <button onClick={() => abrirModalReporte(trabajo)}
                                         className="px-4 py-2 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-xl text-sm font-medium transition-colors border border-orange-200">
@@ -1625,6 +1655,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                         Finalizar
                                     </button>
                                 </div>
+                                )}
                             </div>
                         </div>
                             );
@@ -1655,7 +1686,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 )}
 
                 {/* ─── TAB: HISTORIAL ────────────────────────────── */}
-                {seccion === "historial" && (
+                {seccionVisible === "historial" && (
                 <div className="space-y-6">
                     {/* ── Historial de trabajos ─────── */}
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -1817,6 +1848,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                 user={user}
                                 nota={notasLaboratorista[trabajo.id] ?? null}
                                 onNotaChange={actualizarNotaLaboratorista}
+                                soloLectura={!puedeGestionarTrabajos}
                             />
                             {trabajo.materiales && trabajo.materiales.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-2">
@@ -1825,10 +1857,12 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                                     ))}
                                 </div>
                             )}
-                            <div className="mt-2">
-                                <button onClick={() => abrirModalReporte(trabajo)}
-                                    className="text-xs text-orange-600 hover:text-orange-700 font-medium hover:underline">Reportar</button>
-                            </div>
+                            {puedeGestionarTrabajos && (
+                                <div className="mt-2">
+                                    <button onClick={() => abrirModalReporte(trabajo)}
+                                        className="text-xs text-orange-600 hover:text-orange-700 font-medium hover:underline">Reportar</button>
+                                </div>
+                            )}
                         </div>
                                     );
                                 })}
@@ -1854,7 +1888,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 )}
 
                 {/* ─── TAB: INVENTARIO ───────────────────────────── */}
-                {seccion === "inventario" && (
+                {seccionVisible === "inventario" && (
                 <div className="space-y-4">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div>
@@ -1957,7 +1991,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 </div>
                 )}
 
-                {seccion === "historial" && (
+                {!integradoEnLogistica && seccionVisible === "historial" && (
                 <div className="space-y-4">
                     {/* ── Historial global ──────────── */}
                     <div>
@@ -2017,7 +2051,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 />
             )}
 
-            {mostrarModalTrabajo && (
+            {puedeGestionarTrabajos && puedeCrearTrabajos && mostrarModalTrabajo && (
                 <NuevoTrabajoModal
                     items={items}
                     onClose={() => setMostrarModalTrabajo(false)}
@@ -2025,7 +2059,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 />
             )}
 
-            {mostrarModalFresar && trabajoParaFresar && (
+            {puedeGestionarTrabajos && mostrarModalFresar && trabajoParaFresar && (
                 <ModalFresar
                     trabajo={trabajoParaFresar}
                     items={items.filter(item => item.category === "bloc")}
@@ -2037,7 +2071,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 />
             )}
 
-            {mostrarModalAditamento && trabajoParaAditamento && (
+            {puedeGestionarTrabajos && mostrarModalAditamento && trabajoParaAditamento && (
                 <ModalAditamento
                     trabajo={trabajoParaAditamento}
                     items={items.filter(item => item.category === "other" || item.name.toLowerCase().includes("aditamento"))}
@@ -2049,7 +2083,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 />
             )}
 
-            {mostrarModalReporte && trabajoParaReporte && (
+            {puedeGestionarTrabajos && mostrarModalReporte && trabajoParaReporte && (
                 <ModalReporte
                     trabajo={trabajoParaReporte}
                     onClose={() => {
@@ -2060,7 +2094,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 />
             )}
 
-            {mostrarModalAnillas && trabajoParaAnillas && (
+            {puedeGestionarTrabajos && mostrarModalAnillas && trabajoParaAnillas && (
                 <ModalAnillas
                     trabajo={trabajoParaAnillas}
                     items={items.filter(item => item.category === "anillas")}
@@ -2082,7 +2116,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
             )}
 
                 {/* ─── TAB: NOTAS (laboratorista) ───────────────── */}
-                {seccion === "notas" && (
+                {seccionVisible === "notas" && (
                 <div className="space-y-6">
                     <div>
                         <h2 className="text-2xl font-bold text-gray-800">Notas del laboratorista</h2>
@@ -2175,7 +2209,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 )}
 
                 {/* ─── TAB: REPORTES ─────────────────────────────── */}
-                {seccion === "reportes" && (
+                {seccionVisible === "reportes" && (
                 <div className="space-y-6">
 
                     {/* ── Reporte: Stock Agotados ─────────────────── */}
@@ -2274,7 +2308,7 @@ export default function Inventario({ user, perfil, onIrAdmin }) {
                 </div>
                 )}
 
-            {mostrarModalReciclar && trabajoParaReciclar && (
+            {puedeGestionarTrabajos && mostrarModalReciclar && trabajoParaReciclar && (
                 <ModalReciclar
                     trabajo={trabajoParaReciclar}
                     onClose={() => {
