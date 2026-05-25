@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabase";
+import { filtrarStaffActivo } from "./staffExcluidos";
 
 const ESTADOS = [
     { v: "pendiente", label: "Pendiente", color: "amber" },
@@ -395,7 +396,7 @@ export default function TareasTab({ user }) {
             setTareas(tareasRes.data ?? []);
         }
 
-        const equipo = staffRes.data ?? [];
+        const equipo = filtrarStaffActivo(staffRes.data ?? []);
         setStaff(equipo);
         const map = {};
         equipo.forEach((p) => {
