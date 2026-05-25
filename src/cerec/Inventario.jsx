@@ -4,6 +4,7 @@ import MovimientoModal from "./MovimientoModal";
 import NuevoTrabajoModal from "./NuevoTrabajoModal";
 import LaboratoristaNotaTrabajo from "./LaboratoristaNotaTrabajo";
 import TareasTab from "./TareasTab";
+import LogisticaTrabajoControl from "./LogisticaTrabajoControl";
 import DentalCityLogo from "../assets/DentalCity.png";
 import { DOCTORES_CEREC } from "./doctoresCerec";
 
@@ -76,6 +77,7 @@ export default function Inventario({
     const [cargandoCalendario, setCargandoCalendario] = useState(false);
     const [seccion, setSeccion] = useState(seccionForzada || "trabajos");
     const seccionVisible = seccionForzada ?? seccion;
+    const [recibiendoLogisticaId, setRecibiendoLogisticaId] = useState(null);
 
     useEffect(() => {
         if (seccionForzada) setSeccion(seccionForzada);
@@ -383,7 +385,7 @@ export default function Inventario({
         // Cargar trabajos nuevos (enviados por doctor, sin iniciar)
         const { data: nuevos, error: errNuevos } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, created_by, created_at, etapa, fecha_espera, notas_doctor, reciclado")
+            .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, created_by, created_at, etapa, fecha_espera, notas_doctor, reciclado, logistics_received_at, logistics_received_by")
             .eq("status", "pending")
             .eq("etapa", "nuevo")
             .order("fecha_espera", { ascending: true });
@@ -423,7 +425,7 @@ export default function Inventario({
         // Cargar trabajos en proceso
         const { data: pendientes, error: errPendientes } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, created_by, created_at, etapa, fecha_espera, notas_doctor, reciclado")
+            .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, created_by, created_at, etapa, fecha_espera, notas_doctor, reciclado, logistics_received_at, logistics_received_by")
             .eq("status", "pending")
             .neq("etapa", "nuevo")
             .order("created_at", { ascending: false });
@@ -533,7 +535,7 @@ export default function Inventario({
         // Cargar historial de trabajos
         const { data: historial, error: errHistorial } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera, notas_doctor, reciclado")
+            .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera, notas_doctor, reciclado, logistics_received_at, logistics_received_by")
             .eq("status", "completed")
             .not("completed_at", "is", null)
             .order("completed_at", { ascending: false });
@@ -642,6 +644,41 @@ export default function Inventario({
         } finally {
             if (!silent) setCargandoTrabajos(false);
         }
+    }
+
+    function actualizarTrabajoEnListas(jobId, cambios) {
+        const aplicar = (lista) => lista.map((t) => (t.id === jobId ? { ...t, ...cambios } : t));
+        setTrabajosNuevos((prev) => aplicar(prev));
+        setTrabajosPendientes((prev) => aplicar(prev));
+        setHistorialTrabajos((prev) => aplicar(prev));
+    }
+
+    async function recibirEnLogistica(jobId) {
+        if (!user?.id) {
+            setError("No hay sesión activa.");
+            return;
+        }
+        setRecibiendoLogisticaId(jobId);
+        setError("");
+        const ahora = new Date().toISOString();
+        const { error: err } = await supabase
+            .from("jobs")
+            .update({
+                logistics_received_at: ahora,
+                logistics_received_by: user.id,
+            })
+            .eq("id", jobId);
+
+        setRecibiendoLogisticaId(null);
+        if (err) {
+            console.error(err);
+            setError(err.message || "No se pudo marcar en logística.");
+            return;
+        }
+        actualizarTrabajoEnListas(jobId, {
+            logistics_received_at: ahora,
+            logistics_received_by: user.id,
+        });
     }
 
     function actualizarNotaLaboratorista(jobId, nota) {
@@ -1452,10 +1489,15 @@ export default function Inventario({
                                     <div key={trabajo.id} className="rounded-xl border border-amber-200 bg-amber-50/30 p-4">
                                         <div className="flex flex-col lg:flex-row justify-between items-start gap-3">
                                             <div className="min-w-0">
-                                                <h4 className="text-base font-semibold text-gray-800">
-                                                    {obtenerNombreTratamiento(trabajo)} — {trabajo.patient_name}
-                                                    {trabajo.pieza && <span className="text-gray-500 font-normal"> (Pieza: {trabajo.pieza})</span>}
-                                                </h4>
+                                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                    <h4 className="text-base font-semibold text-gray-800">
+                                                        {obtenerNombreTratamiento(trabajo)} — {trabajo.patient_name}
+                                                        {trabajo.pieza && <span className="text-gray-500 font-normal"> (Pieza: {trabajo.pieza})</span>}
+                                                    </h4>
+                                                    {!integradoEnLogistica && trabajo.logistics_received_at && (
+                                                        <LogisticaTrabajoControl trabajo={trabajo} modo="lectura" />
+                                                    )}
+                                                </div>
                                                 <div className="text-sm text-gray-600 mt-1">Dr. {trabajo.doctor || "Sin doctor"}</div>
                                                 {trabajo.color && (
                                                     <div className="text-sm text-amber-700 mt-1 font-medium">Color: {trabajo.color}</div>
@@ -1483,14 +1525,24 @@ export default function Inventario({
                                                     soloLectura={!puedeGestionarTrabajos}
                                                 />
                                             </div>
-                                            {puedeGestionarTrabajos && (
-                                                <button
-                                                    onClick={() => empezarTrabajo(trabajo.id)}
-                                                    className="px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 text-sm font-medium transition-colors shadow-sm"
-                                                >
-                                                    Empezar
-                                                </button>
-                                            )}
+                                            <div className="flex flex-col gap-2 shrink-0">
+                                                {(integradoEnLogistica || trabajo.logistics_received_at) && (
+                                                    <LogisticaTrabajoControl
+                                                        trabajo={trabajo}
+                                                        modo={integradoEnLogistica ? "logistica" : "lectura"}
+                                                        onRecibir={recibirEnLogistica}
+                                                        guardando={recibiendoLogisticaId === trabajo.id}
+                                                    />
+                                                )}
+                                                {puedeGestionarTrabajos && (
+                                                    <button
+                                                        onClick={() => empezarTrabajo(trabajo.id)}
+                                                        className="px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 text-sm font-medium transition-colors shadow-sm"
+                                                    >
+                                                        Empezar
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -1576,6 +1628,9 @@ export default function Inventario({
                                                 {tipo === "error" ? "ERROR" : "FALLA"}
                                             </span>
                                         ))}
+                                        {!integradoEnLogistica && trabajo.logistics_received_at && (
+                                            <LogisticaTrabajoControl trabajo={trabajo} modo="lectura" />
+                                        )}
                                     </div>
                                     <h3 className="text-lg font-bold text-gray-800 leading-tight">
                                         {obtenerNombreTratamiento(trabajo)} — {trabajo.patient_name}
@@ -1624,8 +1679,17 @@ export default function Inventario({
                                         </div>
                                     )}
                                 </div>
+                                <div className="flex flex-col gap-2 shrink-0">
+                                {integradoEnLogistica && (
+                                    <LogisticaTrabajoControl
+                                        trabajo={trabajo}
+                                        modo="logistica"
+                                        onRecibir={recibirEnLogistica}
+                                        guardando={recibiendoLogisticaId === trabajo.id}
+                                    />
+                                )}
                                 {puedeGestionarTrabajos && (
-                                <div className="flex flex-wrap gap-2 shrink-0">
+                                <div className="flex flex-wrap gap-2">
                                     <button onClick={() => abrirModalReporte(trabajo)}
                                         className="px-4 py-2 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-xl text-sm font-medium transition-colors border border-orange-200">
                                         Reportar
@@ -1660,6 +1724,7 @@ export default function Inventario({
                                     </button>
                                 </div>
                                 )}
+                                </div>
                             </div>
                         </div>
                             );
@@ -1833,7 +1898,12 @@ export default function Inventario({
                                         {tipo === "error" ? "ERROR" : "FALLA"}
                                     </span>
                                 ))}
+                                {trabajo.logistics_received_at && !integradoEnLogistica && (
+                                    <LogisticaTrabajoControl trabajo={trabajo} modo="lectura" />
+                                )}
                             </div>
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                            <div className="flex-1 min-w-0">
                             <h3 className="font-bold text-gray-800">
                                 {obtenerNombreTratamiento(trabajo)} — {trabajo.patient_name}
                                 {trabajo.pieza && <span className="text-gray-500 font-normal"> (Pieza: {trabajo.pieza})</span>}
@@ -1867,6 +1937,16 @@ export default function Inventario({
                                         className="text-xs text-orange-600 hover:text-orange-700 font-medium hover:underline">Reportar</button>
                                 </div>
                             )}
+                            </div>
+                            {integradoEnLogistica && (
+                                <LogisticaTrabajoControl
+                                    trabajo={trabajo}
+                                    modo="logistica"
+                                    onRecibir={recibirEnLogistica}
+                                    guardando={recibiendoLogisticaId === trabajo.id}
+                                />
+                            )}
+                            </div>
                         </div>
                                     );
                                 })}

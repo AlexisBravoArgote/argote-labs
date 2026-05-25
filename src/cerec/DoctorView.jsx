@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../supabase";
+import LogisticaTrabajoControl from "./LogisticaTrabajoControl";
 import ModalEnviarTrabajo from "./ModalEnviarTrabajo";
 import DentalCityLogo from "../assets/DentalCity.png";
 
@@ -85,7 +86,7 @@ export default function DoctorView({ user, perfil, esAsistenteDental = false }) 
             // Cargar trabajos del doctor (filtrar por created_by)
             const { data: trabajosData, error: errTrabajos } = await supabase
                 .from("jobs")
-                .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, status, etapa, fecha_espera, created_at, completed_at, notas_doctor")
+                .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, status, etapa, fecha_espera, created_at, completed_at, notas_doctor, logistics_received_at")
                 .eq("created_by", user.id)
                 .order("created_at", { ascending: false });
 
@@ -593,6 +594,7 @@ export default function DoctorView({ user, perfil, esAsistenteDental = false }) 
                                                         }`}>
                                                             {estado.texto}
                                                         </span>
+                                                        <LogisticaTrabajoControl trabajo={trabajo} modo="lectura" />
                                                     </div>
 
                                                     <div className="text-sm text-gray-600 space-y-1">
