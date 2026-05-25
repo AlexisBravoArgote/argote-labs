@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../supabase";
 import LogisticaTrabajoControl from "./LogisticaTrabajoControl";
 import ModalEnviarTrabajo from "./ModalEnviarTrabajo";
+import EnviarTrabajoCerecCta from "./EnviarTrabajoCerecCta";
+import DoctorTrabajoCard from "./DoctorTrabajoCard";
 import DentalCityLogo from "../assets/DentalCity.png";
 
 const TIPOS_TRATAMIENTO = [
@@ -353,6 +355,22 @@ export default function DoctorView({ user, perfil, esAsistenteDental = false }) 
     }, [trabajosFiltrados, paginaTrabajos]);
     const totalPaginasTrabajos = Math.ceil(trabajosFiltrados.length / trabajosPorPagina);
 
+    const resumenTrabajos = useMemo(() => {
+        const esNuevo = (t) => t.status === "pending" && t.etapa === "nuevo";
+        const esProceso = (t) => t.status === "pending" && t.etapa !== "nuevo";
+        return {
+            total: trabajos.length,
+            nuevos: trabajos.filter(esNuevo).length,
+            proceso: trabajos.filter(esProceso).length,
+            finalizados: trabajos.filter((t) => t.status === "completed").length,
+        };
+    }, [trabajos]);
+
+    function aplicarFiltroResumen(filtro) {
+        setFiltroEstado((prev) => (prev === filtro ? "todos" : filtro));
+        setPaginaTrabajos(1);
+    }
+
     async function logout() {
         await supabase.auth.signOut();
     }
@@ -422,15 +440,64 @@ export default function DoctorView({ user, perfil, esAsistenteDental = false }) 
                 {vista === "trabajos" && (
                     <>
                         <div className="mb-6">
-                            <button
-                                onClick={() => { setErrorModalEnviar(""); setMostrarModalEnviar(true); }}
-                                className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 text-lg font-medium shadow-md"
-                            >
-                                Mandar trabajo al CEREC
-                            </button>
+                            <EnviarTrabajoCerecCta
+                                esAsistente={esAsistenteDental}
+                                onClick={() => {
+                                    setErrorModalEnviar("");
+                                    setMostrarModalEnviar(true);
+                                }}
+                            />
                         </div>
 
-                        <div className="mb-4 bg-white rounded-2xl border border-gray-200 p-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                            {[
+                                {
+                                    label: "Total",
+                                    value: resumenTrabajos.total,
+                                    filtro: "todos",
+                                    cls: "from-gray-50 to-white border-gray-200 text-gray-800",
+                                    activeRing: "ring-2 ring-gray-400 ring-offset-2 border-gray-300",
+                                },
+                                {
+                                    label: "Nuevos",
+                                    value: resumenTrabajos.nuevos,
+                                    filtro: "nuevo",
+                                    cls: "from-amber-50 to-white border-amber-100 text-amber-800",
+                                    activeRing: "ring-2 ring-amber-400 ring-offset-2 border-amber-300",
+                                },
+                                {
+                                    label: "En proceso",
+                                    value: resumenTrabajos.proceso,
+                                    filtro: "proceso",
+                                    cls: "from-sky-50 to-white border-sky-100 text-sky-800",
+                                    activeRing: "ring-2 ring-sky-400 ring-offset-2 border-sky-300",
+                                },
+                                {
+                                    label: "Finalizados",
+                                    value: resumenTrabajos.finalizados,
+                                    filtro: "finalizado",
+                                    cls: "from-emerald-50 to-white border-emerald-100 text-emerald-800",
+                                    activeRing: "ring-2 ring-emerald-400 ring-offset-2 border-emerald-300",
+                                },
+                            ].map((s) => {
+                                const activo = filtroEstado === s.filtro;
+                                return (
+                                    <button
+                                        key={s.label}
+                                        type="button"
+                                        onClick={() => aplicarFiltroResumen(s.filtro)}
+                                        className={`rounded-xl border bg-gradient-to-br px-4 py-3 text-left transition-all hover:shadow-md hover:-translate-y-0.5 focus:outline-none ${
+                                            activo ? s.activeRing : s.cls
+                                        }`}
+                                    >
+                                        <div className="text-2xl font-bold tabular-nums">{s.value}</div>
+                                        <div className="text-xs font-semibold uppercase tracking-wide opacity-80">{s.label}</div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <div className="mb-4 bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
                             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
                                 <div className="relative flex-1 w-full">
                                     <svg className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -440,21 +507,29 @@ export default function DoctorView({ user, perfil, esAsistenteDental = false }) 
                                         type="text"
                                         value={busqueda}
                                         onChange={(e) => { setBusqueda(e.target.value); setPaginaTrabajos(1); }}
-                                        placeholder="Buscar en mis trabajos..."
-                                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white"
+                                        placeholder="Buscar por paciente, tratamiento, pieza…"
+                                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-gray-50/50 focus:bg-white"
                                     />
                                 </div>
                                 <button
+                                    type="button"
                                     onClick={() => setMostrarFiltrosTrabajos(!mostrarFiltrosTrabajos)}
-                                    className="px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap"
+                                    className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap border ${
+                                        mostrarFiltrosTrabajos
+                                            ? "bg-emerald-600 text-white border-emerald-600"
+                                            : "bg-white text-gray-700 border-gray-200 hover:border-emerald-300 hover:text-emerald-700"
+                                    }`}
                                 >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                    </svg>
                                     {mostrarFiltrosTrabajos ? "Ocultar filtros" : "Filtros"}
                                 </button>
                             </div>
                             {(() => {
                                 const filtrosActivos = [filtroEstado !== "todos", filtroFechaDesde, filtroFechaHasta, filtroTratamiento].filter(Boolean).length;
                                 return filtrosActivos > 0 ? (
-                                    <div className="mt-3 text-xs text-orange-700 font-medium bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200 inline-block">
+                                    <div className="mt-3 text-xs text-emerald-800 font-semibold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 inline-block">
                                         {filtrosActivos} filtro{filtrosActivos > 1 ? "s" : ""} activo{filtrosActivos > 1 ? "s" : ""}
                                     </div>
                                 ) : null;
@@ -462,14 +537,14 @@ export default function DoctorView({ user, perfil, esAsistenteDental = false }) 
                         </div>
 
                         {mostrarFiltrosTrabajos && (
-                            <div className="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-4 space-y-4">
+                            <div className="mb-4 bg-gradient-to-br from-emerald-50/80 to-teal-50/50 rounded-2xl border border-emerald-100 p-4 sm:p-5 space-y-4 shadow-sm">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                     <div>
                                         <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-2">Estado</label>
                                         <select
                                             value={filtroEstado}
                                             onChange={(e) => { setFiltroEstado(e.target.value); setPaginaTrabajos(1); }}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white"
                                         >
                                             <option value="todos">Todos los estados</option>
                                             <option value="nuevo">Nuevo</option>
@@ -482,7 +557,7 @@ export default function DoctorView({ user, perfil, esAsistenteDental = false }) 
                                         <select
                                             value={filtroTratamiento}
                                             onChange={(e) => { setFiltroTratamiento(e.target.value); setPaginaTrabajos(1); }}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white"
                                         >
                                             <option value="">Todos</option>
                                             {TIPOS_TRATAMIENTO.map((t) => (
@@ -496,7 +571,7 @@ export default function DoctorView({ user, perfil, esAsistenteDental = false }) 
                                             type="date"
                                             value={filtroFechaDesde}
                                             onChange={(e) => { setFiltroFechaDesde(e.target.value); setPaginaTrabajos(1); }}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white"
                                         />
                                     </div>
                                     <div>
@@ -505,7 +580,7 @@ export default function DoctorView({ user, perfil, esAsistenteDental = false }) 
                                             type="date"
                                             value={filtroFechaHasta}
                                             onChange={(e) => { setFiltroFechaHasta(e.target.value); setPaginaTrabajos(1); }}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white"
                                         />
                                     </div>
                                 </div>
@@ -518,7 +593,7 @@ export default function DoctorView({ user, perfil, esAsistenteDental = false }) 
                                             setFiltroTratamiento("");
                                             setPaginaTrabajos(1);
                                         }}
-                                        className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline"
+                                        className="text-sm text-emerald-700 hover:text-emerald-800 font-semibold hover:underline"
                                     >
                                         Limpiar filtros
                                     </button>
@@ -544,152 +619,86 @@ export default function DoctorView({ user, perfil, esAsistenteDental = false }) 
                             }
                             if (!chips.length) return null;
                             return (
-                                <div className="mb-4 flex flex-wrap gap-2">
+                                <div className="mb-5 flex flex-wrap gap-2">
                                     {chips.map((chip) => (
                                         <button
                                             key={chip.key}
+                                            type="button"
                                             onClick={chip.clear}
-                                            className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors"
+                                            className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition-colors"
                                             title="Quitar filtro"
                                         >
                                             {chip.label}
-                                            <span className="text-blue-500">×</span>
+                                            <span className="text-emerald-500">×</span>
                                         </button>
                                     ))}
                                 </div>
                             );
                         })()}
 
-                        <h2 className="text-lg font-semibold mb-4">Mis Trabajos</h2>
+                        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-5">
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900">Mis trabajos</h2>
+                                <p className="text-sm text-gray-500 mt-0.5">
+                                    {trabajosFiltrados.length} resultado{trabajosFiltrados.length !== 1 ? "s" : ""}
+                                    {trabajosFiltrados.length !== trabajos.length && (
+                                        <span className="text-gray-400"> · de {trabajos.length} en total</span>
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+
                         {cargando ? (
-                            <div className="text-gray-600">Cargando trabajos...</div>
+                            <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-gray-200">
+                                <div className="w-10 h-10 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mb-3" />
+                                <p className="text-sm text-gray-500">Cargando tus trabajos…</p>
+                            </div>
                         ) : trabajosFiltrados.length === 0 ? (
-                            <div className="text-gray-500 text-sm">
-                                {busqueda || filtroEstado !== "todos"
-                                    ? "No se encontraron trabajos con esos filtros."
-                                    : "No has enviado ningún trabajo aún."}
+                            <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-200">
+                                <svg className="w-14 h-14 text-emerald-200 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                </svg>
+                                <p className="text-gray-700 font-medium">
+                                    {busqueda || filtroEstado !== "todos" || filtroTratamiento || filtroFechaDesde || filtroFechaHasta
+                                        ? "No hay trabajos con esos filtros"
+                                        : "Aún no has enviado trabajos"}
+                                </p>
+                                <p className="text-sm text-gray-400 mt-1 max-w-sm mx-auto">
+                                    {busqueda || filtroEstado !== "todos"
+                                        ? "Prueba cambiar la búsqueda o limpiar los filtros."
+                                        : "Usa el botón de arriba para enviar tu primer caso al laboratorio."}
+                                </p>
                             </div>
                         ) : (
                             <>
                             <div className="grid gap-4">
-                                {trabajosPaginados.map((trabajo) => {
-                                    const estado = obtenerEstadoTrabajo(trabajo);
-                                    return (
-                                        <div key={trabajo.id} className="border rounded-lg p-4 bg-white shadow-sm">
-                                            <div className="flex items-start justify-between mb-3">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <h3 className="text-lg font-semibold">
-                                                            {obtenerNombreTratamiento(trabajo)} - {trabajo.patient_name}
-                                                            {trabajo.pieza && ` (Pieza: ${trabajo.pieza})`}
-                                                        </h3>
-                                                        <span className={`text-xs px-2 py-1 rounded font-medium ${
-                                                            estado.color === "green"
-                                                                ? "bg-green-100 text-green-800"
-                                                                : estado.color === "blue"
-                                                                    ? "bg-blue-100 text-blue-800"
-                                                                    : estado.color === "purple"
-                                                                        ? "bg-purple-100 text-purple-800"
-                                                                        : "bg-orange-100 text-orange-800"
-                                                        }`}>
-                                                            {estado.texto}
-                                                        </span>
-                                                        <LogisticaTrabajoControl trabajo={trabajo} modo="lectura" />
-                                                    </div>
-
-                                                    <div className="text-sm text-gray-600 space-y-1">
-                                                        <div>
-                                                            <span className="font-medium">Etapa actual:</span>{" "}
-                                                            <span className={`font-semibold ${
-                                                                estado.color === "green"
-                                                                    ? "text-green-600"
-                                                                    : estado.color === "blue"
-                                                                        ? "text-blue-600"
-                                                                        : estado.color === "purple"
-                                                                            ? "text-purple-600"
-                                                                            : "text-orange-600"
-                                                            }`}>
-                                                                {estado.etapa}
-                                                            </span>
-                                                        </div>
-                                                        {trabajo.color && (
-                                                            <div>
-                                                                <span className="font-medium">Color:</span>{" "}
-                                                                <span className="text-amber-700 font-semibold">{trabajo.color}</span>
-                                                            </div>
-                                                        )}
-
-                                                        {trabajo.fecha_espera && (
-                                                            <div>
-                                                                <span className="font-medium">Fecha esperada:</span>{" "}
-                                                                <span className="text-blue-600">
-                                                                    {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX", {
-                                                                        weekday: "long",
-                                                                        year: "numeric",
-                                                                        month: "long",
-                                                                        day: "numeric"
-                                                                    })}
-                                                                </span>
-                                                            </div>
-                                                        )}
-
-                                                        <div>
-                                                            <span className="font-medium">Enviado:</span>{" "}
-                                                            {new Date(trabajo.created_at).toLocaleString("es-MX")}
-                                                        </div>
-
-                                                        {trabajo.status === "completed" && trabajo.completed_at && (
-                                                            <div>
-                                                                <span className="font-medium">Finalizado:</span>{" "}
-                                                                <span className="text-green-600">
-                                                                    {new Date(trabajo.completed_at).toLocaleString("es-MX")}
-                                                                </span>
-                                                            </div>
-                                                        )}
-
-                                                        {trabajo.notas_doctor && (
-                                                            <div className="mt-2 p-2 bg-gray-50 rounded border-l-4 border-blue-500">
-                                                                <span className="font-medium text-sm">Notas adicionales:</span>
-                                                                <p className="text-sm text-gray-700 mt-1">{trabajo.notas_doctor}</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-
-                                                    {trabajo.materiales && trabajo.materiales.length > 0 && (
-                                                        <div className="mt-3 p-3 bg-gray-50 rounded">
-                                                            <div className="text-sm font-medium mb-2">Materiales utilizados:</div>
-                                                            <div className="flex flex-wrap gap-2">
-                                                                {trabajo.materiales.map((m, idx) => (
-                                                                    <span
-                                                                        key={idx}
-                                                                        className="text-xs bg-white border rounded px-2 py-1"
-                                                                    >
-                                                                        {m.item_name} × {m.quantity}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                {trabajosPaginados.map((trabajo) => (
+                                    <DoctorTrabajoCard
+                                        key={trabajo.id}
+                                        trabajo={trabajo}
+                                        obtenerNombreTratamiento={obtenerNombreTratamiento}
+                                        obtenerEstadoTrabajo={obtenerEstadoTrabajo}
+                                    />
+                                ))}
                             </div>
                             {totalPaginasTrabajos > 1 && (
-                                <div className="flex items-center justify-center gap-3 mt-4">
+                                <div className="flex items-center justify-center gap-3 mt-6">
                                     <button
+                                        type="button"
                                         onClick={() => setPaginaTrabajos((p) => Math.max(1, p - 1))}
                                         disabled={paginaTrabajos === 1}
-                                        className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
                                         Anterior
                                     </button>
-                                    <span className="text-sm text-gray-600">{paginaTrabajos} / {totalPaginasTrabajos}</span>
+                                    <span className="text-sm font-medium text-gray-600 tabular-nums px-2">
+                                        {paginaTrabajos} / {totalPaginasTrabajos}
+                                    </span>
                                     <button
+                                        type="button"
                                         onClick={() => setPaginaTrabajos((p) => Math.min(totalPaginasTrabajos, p + 1))}
                                         disabled={paginaTrabajos === totalPaginasTrabajos}
-                                        className="px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
                                         Siguiente
                                     </button>

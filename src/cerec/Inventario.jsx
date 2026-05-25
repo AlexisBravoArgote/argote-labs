@@ -4,7 +4,8 @@ import MovimientoModal from "./MovimientoModal";
 import NuevoTrabajoModal from "./NuevoTrabajoModal";
 import LaboratoristaNotaTrabajo from "./LaboratoristaNotaTrabajo";
 import TareasTab from "./TareasTab";
-import LogisticaTrabajoControl from "./LogisticaTrabajoControl";
+import CerecTrabajoCard from "./CerecTrabajoCard";
+import { temaAccent } from "./cerecTrabajoShared";
 import DentalCityLogo from "../assets/DentalCity.png";
 import { DOCTORES_CEREC } from "./doctoresCerec";
 
@@ -78,6 +79,7 @@ export default function Inventario({
     const [seccion, setSeccion] = useState(seccionForzada || "trabajos");
     const seccionVisible = seccionForzada ?? seccion;
     const [recibiendoLogisticaId, setRecibiendoLogisticaId] = useState(null);
+    const tema = temaAccent(integradoEnLogistica);
 
     useEffect(() => {
         if (seccionForzada) setSeccion(seccionForzada);
@@ -1469,82 +1471,50 @@ export default function Inventario({
             {/* ─── TAB: TRABAJOS ─────────────────────────────── */}
                 {seccionVisible === "trabajos" && (
                 <div className="space-y-4">
-                    <div className="bg-white rounded-2xl border border-amber-200 p-5">
-                        <div className="flex items-center justify-between gap-3 mb-3">
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-800">Trabajos nuevos</h3>
-                                <p className="text-sm text-gray-500">
-                                    {trabajosNuevos.length} pendiente{trabajosNuevos.length !== 1 ? "s" : ""} por iniciar
-                                    {trabajosNuevos.length > 0 && (
-                                        <span className="text-gray-400"> · Orden: fecha esperada más cercana primero</span>
-                                    )}
-                                </p>
-                            </div>
+                    <div className="rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50/60 to-white p-5 sm:p-6 shadow-sm">
+                        <div className="mb-4">
+                            <h3 className="text-lg font-bold text-gray-900">Trabajos nuevos</h3>
+                            <p className="text-sm text-gray-500 mt-0.5">
+                                {trabajosNuevos.length} pendiente{trabajosNuevos.length !== 1 ? "s" : ""} por iniciar
+                                {trabajosNuevos.length > 0 && (
+                                    <span className="text-gray-400"> · Fecha esperada más cercana primero</span>
+                                )}
+                            </p>
                         </div>
                         {trabajosNuevos.length === 0 ? (
-                            <p className="text-sm text-gray-500">No hay trabajos nuevos por iniciar.</p>
+                            <p className="text-sm text-gray-500 py-4 text-center">No hay trabajos nuevos por iniciar.</p>
                         ) : (
-                            <div className="grid gap-3">
+                            <div className="grid gap-4">
                                 {trabajosNuevos.map((trabajo) => (
-                                    <div key={trabajo.id} className="rounded-xl border border-amber-200 bg-amber-50/30 p-4">
-                                        <div className="flex flex-col lg:flex-row justify-between items-start gap-3">
-                                            <div className="min-w-0">
-                                                <div className="flex flex-wrap items-center gap-2 mb-1">
-                                                    <h4 className="text-base font-semibold text-gray-800">
-                                                        {obtenerNombreTratamiento(trabajo)} — {trabajo.patient_name}
-                                                        {trabajo.pieza && <span className="text-gray-500 font-normal"> (Pieza: {trabajo.pieza})</span>}
-                                                    </h4>
-                                                    {!integradoEnLogistica && trabajo.logistics_received_at && (
-                                                        <LogisticaTrabajoControl trabajo={trabajo} modo="lectura" />
-                                                    )}
-                                                </div>
-                                                <div className="text-sm text-gray-600 mt-1">Dr. {trabajo.doctor || "Sin doctor"}</div>
-                                                {trabajo.color && (
-                                                    <div className="text-sm text-amber-700 mt-1 font-medium">Color: {trabajo.color}</div>
-                                                )}
-                                                {trabajo.fecha_espera ? (
-                                                    <div className="text-sm text-blue-600 font-semibold mt-1">
-                                                        Fecha esperada: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX", { weekday: "short", year: "numeric", month: "short", day: "numeric" })}
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-xs text-amber-800 mt-1 font-medium">Sin fecha esperada registrada</div>
-                                                )}
-                                                <div className="text-xs text-gray-500 mt-1">
-                                                    Enviado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
-                                                </div>
-                                                {trabajo.notas_doctor && (
-                                                    <div className="mt-2 p-2 bg-blue-50 border-l-4 border-blue-400 rounded-r-lg text-sm text-gray-700">
-                                                        {trabajo.notas_doctor}
-                                                    </div>
-                                                )}
-                                                <LaboratoristaNotaTrabajo
-                                                    jobId={trabajo.id}
-                                                    user={user}
-                                                    nota={notasLaboratorista[trabajo.id] ?? null}
-                                                    onNotaChange={actualizarNotaLaboratorista}
-                                                    soloLectura={!puedeGestionarTrabajos}
-                                                />
-                                            </div>
-                                            <div className="flex flex-col gap-2 shrink-0">
-                                                {(integradoEnLogistica || trabajo.logistics_received_at) && (
-                                                    <LogisticaTrabajoControl
-                                                        trabajo={trabajo}
-                                                        modo={integradoEnLogistica ? "logistica" : "lectura"}
-                                                        onRecibir={recibirEnLogistica}
-                                                        guardando={recibiendoLogisticaId === trabajo.id}
-                                                    />
-                                                )}
-                                                {puedeGestionarTrabajos && (
-                                                    <button
-                                                        onClick={() => empezarTrabajo(trabajo.id)}
-                                                        className="px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 text-sm font-medium transition-colors shadow-sm"
-                                                    >
-                                                        Empezar
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <CerecTrabajoCard
+                                        key={trabajo.id}
+                                        variant="nuevo"
+                                        integradoEnLogistica={integradoEnLogistica}
+                                        trabajo={trabajo}
+                                        obtenerNombreTratamiento={obtenerNombreTratamiento}
+                                        onRecibirLogistica={recibirEnLogistica}
+                                        recibiendoLogisticaId={recibiendoLogisticaId}
+                                        notaLaboratorista={
+                                            <LaboratoristaNotaTrabajo
+                                                jobId={trabajo.id}
+                                                user={user}
+                                                nota={notasLaboratorista[trabajo.id] ?? null}
+                                                onNotaChange={actualizarNotaLaboratorista}
+                                                soloLectura={!puedeGestionarTrabajos}
+                                            />
+                                        }
+                                        acciones={
+                                            puedeGestionarTrabajos ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => empezarTrabajo(trabajo.id)}
+                                                    className="px-5 py-2.5 bg-amber-600 text-white rounded-xl hover:bg-amber-700 text-sm font-semibold transition-colors shadow-sm"
+                                                >
+                                                    Empezar
+                                                </button>
+                                            ) : null
+                                        }
+                                    />
                                 ))}
                             </div>
                         )}
@@ -1552,8 +1522,10 @@ export default function Inventario({
 
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div>
-                            <h2 className="text-2xl font-bold text-gray-800">Trabajos en proceso</h2>
-                            <p className="text-sm text-gray-500">{trabajosPendientes.length} trabajo{trabajosPendientes.length !== 1 ? "s" : ""} activo{trabajosPendientes.length !== 1 ? "s" : ""}</p>
+                            <h2 className="text-2xl font-bold text-gray-900">Trabajos en proceso</h2>
+                            <p className="text-sm text-gray-500 mt-0.5">
+                                {trabajosPendientes.length} trabajo{trabajosPendientes.length !== 1 ? "s" : ""} activo{trabajosPendientes.length !== 1 ? "s" : ""}
+                            </p>
                         </div>
                         {puedeGestionarTrabajos && puedeCrearTrabajos && (
                             <button
@@ -1567,16 +1539,18 @@ export default function Inventario({
                     </div>
 
             {cargandoTrabajos ? (
-                <div className="text-center py-12">
-                    <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
-                    <p className="text-gray-500 text-sm">Cargando trabajos...</p>
+                <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
+                    <div className={`w-10 h-10 border-4 ${tema.spinner} rounded-full animate-spin mx-auto mb-3`} />
+                    <p className="text-gray-500 text-sm">Cargando trabajos…</p>
                 </div>
             ) : trabajosPendientes.length === 0 ? (
-                <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
-                    <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-                    <p className="text-gray-500 text-lg mb-1">No hay trabajos en proceso</p>
-                    <p className="text-gray-400 text-sm">
-                        {puedeGestionarTrabajos ? "Empieza un nuevo trabajo para verlo aquí" : "No hay trabajos activos en este momento"}
+                <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-200">
+                    <svg className={`w-14 h-14 ${tema.emptyIcon} mx-auto mb-4`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <p className="text-gray-700 font-medium">No hay trabajos en proceso</p>
+                    <p className="text-gray-400 text-sm mt-1">
+                        {puedeGestionarTrabajos ? "Inicia un trabajo nuevo para verlo aquí." : "No hay trabajos activos en este momento."}
                     </p>
                 </div>
             ) : (
@@ -1592,9 +1566,9 @@ export default function Inventario({
                         ].map(f => (
                             <button key={f.v}
                                 onClick={() => { setFiltroTrabajosPendientes(f.v); setPaginaTrabajosPendientes(1); }}
-                                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
+                                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
                                     filtroTrabajosPendientes === f.v
-                                        ? "bg-blue-600 text-white shadow-sm"
+                                        ? `${tema.pillActive} text-white shadow-sm`
                                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                                 }`}
                             >
@@ -1610,57 +1584,18 @@ export default function Inventario({
                         </div>
             ) : (
                         <>
-                <div className="grid gap-3">
-                        {trabajosPendientesPaginados.map((trabajo) => {
-                            const tag = obtenerTagTrabajo(trabajo);
-                            const tagColors = tag === "EXOCAD" ? "bg-orange-100 text-orange-700" : tag === "CEREC" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700";
-                            return (
-                        <div key={trabajo.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-all">
-                            <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap mb-2">
-                                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${tagColors}`}>{tag}</span>
-                                        <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${trabajo.etapa === "fresado" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
-                                            {trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}
-                                        </span>
-                                        {trabajo.reportes && trabajo.reportes.length > 0 && trabajo.reportes.map((tipo, idx) => (
-                                            <span key={idx} className={`text-xs font-medium px-2.5 py-1 rounded-lg ${tipo === "error" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
-                                                {tipo === "error" ? "ERROR" : "FALLA"}
-                                            </span>
-                                        ))}
-                                        {!integradoEnLogistica && trabajo.logistics_received_at && (
-                                            <LogisticaTrabajoControl trabajo={trabajo} modo="lectura" />
-                                        )}
-                                    </div>
-                                    <h3 className="text-lg font-bold text-gray-800 leading-tight">
-                                        {obtenerNombreTratamiento(trabajo)} — {trabajo.patient_name}
-                                        {trabajo.pieza && <span className="text-gray-500 font-normal text-base"> (Pieza: {trabajo.pieza})</span>}
-                                    </h3>
-                                    {trabajo.doctor && (
-                                        <div className="text-sm text-gray-600 mt-1 flex items-center gap-1">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                                            Dr. {trabajo.doctor}
-                                        </div>
-                                    )}
-                                    {trabajo.color && (
-                                        <div className="text-sm text-amber-700 mt-1 font-medium">
-                                            Color: {trabajo.color}
-                                        </div>
-                                    )}
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        Iniciado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}
-                                    </div>
-                                    {trabajo.fecha_espera && (
-                                        <div className="text-xs text-blue-600 font-medium mt-1">
-                                            Fecha esperada: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}
-                                        </div>
-                                    )}
-                                    {trabajo.notas_doctor && (
-                                        <div className="mt-3 p-3 bg-blue-50 border-l-4 border-blue-400 rounded-r-xl">
-                                            <div className="text-xs font-semibold text-blue-800 mb-0.5">Notas del doctor:</div>
-                                            <div className="text-sm text-gray-700">{trabajo.notas_doctor}</div>
-                                        </div>
-                                    )}
+                <div className="grid gap-4">
+                        {trabajosPendientesPaginados.map((trabajo) => (
+                            <CerecTrabajoCard
+                                key={trabajo.id}
+                                variant="proceso"
+                                integradoEnLogistica={integradoEnLogistica}
+                                trabajo={trabajo}
+                                obtenerNombreTratamiento={obtenerNombreTratamiento}
+                                obtenerTagTrabajo={obtenerTagTrabajo}
+                                onRecibirLogistica={recibirEnLogistica}
+                                recibiendoLogisticaId={recibiendoLogisticaId}
+                                notaLaboratorista={
                                     <LaboratoristaNotaTrabajo
                                         jobId={trabajo.id}
                                         user={user}
@@ -1668,67 +1603,65 @@ export default function Inventario({
                                         onNotaChange={actualizarNotaLaboratorista}
                                         soloLectura={!puedeGestionarTrabajos}
                                     />
-                                    {trabajo.materiales && trabajo.materiales.length > 0 && (
-                                        <div className="text-sm mt-2 text-gray-600">
-                                            <span className="font-medium">Materiales:</span>{" "}
-                                            {trabajo.materiales.map((m, idx) => (
-                                                <span key={idx} className="inline-flex items-center">
-                                                    <span className="bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded-lg mr-1">{m.item_name} ({m.quantity})</span>
-                                                </span>
-                                            ))}
+                                }
+                                acciones={
+                                    puedeGestionarTrabajos ? (
+                                        <div className="flex flex-wrap gap-2 justify-end">
+                                            <button
+                                                type="button"
+                                                onClick={() => abrirModalReporte(trabajo)}
+                                                className="px-4 py-2 text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-xl text-sm font-semibold transition-colors border border-orange-200"
+                                            >
+                                                Reportar
+                                            </button>
+                                            {trabajo.treatment_type === "corona_implante" && !trabajo.tieneAditamento && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => abrirModalAditamento(trabajo)}
+                                                    className="px-4 py-2 bg-violet-600 text-white rounded-xl hover:bg-violet-700 text-sm font-semibold transition-colors shadow-sm"
+                                                >
+                                                    Aditamento
+                                                </button>
+                                            )}
+                                            {trabajo.treatment_type === "guia_quirurgica" && trabajo.etapa === "diseño" && !trabajo.tieneAnillas && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => abrirModalAnillas(trabajo)}
+                                                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 text-sm font-semibold transition-colors shadow-sm"
+                                                >
+                                                    Anillas
+                                                </button>
+                                            )}
+                                            {necesitaFresado(trabajo) && trabajo.etapa === "diseño" && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => abrirModalFresar(trabajo)}
+                                                    className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm font-semibold transition-colors shadow-sm"
+                                                >
+                                                    Fresar
+                                                </button>
+                                            )}
+                                            {trabajo.etapa === "fresado" && !trabajo.reciclado && trabajo.materiales?.length > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => abrirModalReciclar(trabajo)}
+                                                    className="px-4 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 text-sm font-semibold transition-colors shadow-sm"
+                                                >
+                                                    ♻️ Reciclar
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => finalizarTrabajo(trabajo.id)}
+                                                className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 text-sm font-semibold transition-all shadow-sm"
+                                            >
+                                                Finalizar
+                                            </button>
                                         </div>
-                                    )}
-                                </div>
-                                <div className="flex flex-col gap-2 shrink-0">
-                                {integradoEnLogistica && (
-                                    <LogisticaTrabajoControl
-                                        trabajo={trabajo}
-                                        modo="logistica"
-                                        onRecibir={recibirEnLogistica}
-                                        guardando={recibiendoLogisticaId === trabajo.id}
-                                    />
-                                )}
-                                {puedeGestionarTrabajos && (
-                                <div className="flex flex-wrap gap-2">
-                                    <button onClick={() => abrirModalReporte(trabajo)}
-                                        className="px-4 py-2 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-xl text-sm font-medium transition-colors border border-orange-200">
-                                        Reportar
-                                    </button>
-                                    {trabajo.treatment_type === "corona_implante" && !trabajo.tieneAditamento && (
-                                        <button onClick={() => abrirModalAditamento(trabajo)}
-                                            className="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 text-sm font-medium transition-colors shadow-sm">
-                                            Aditamento
-                                        </button>
-                                    )}
-                                    {trabajo.treatment_type === "guia_quirurgica" && trabajo.etapa === "diseño" && !trabajo.tieneAnillas && (
-                                        <button onClick={() => abrirModalAnillas(trabajo)}
-                                            className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 text-sm font-medium transition-colors shadow-sm">
-                                            Anillas
-                                        </button>
-                                    )}
-                                    {necesitaFresado(trabajo) && trabajo.etapa === "diseño" && (
-                                        <button onClick={() => abrirModalFresar(trabajo)}
-                                            className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm font-medium transition-colors shadow-sm">
-                                            Fresar
-                                        </button>
-                                    )}
-                                    {trabajo.etapa === "fresado" && !trabajo.reciclado && trabajo.materiales && trabajo.materiales.length > 0 && (
-                                        <button onClick={() => abrirModalReciclar(trabajo)}
-                                            className="px-4 py-2 bg-teal-600 text-white rounded-xl hover:bg-teal-700 text-sm font-medium transition-colors shadow-sm">
-                                            ♻️ Reciclar
-                                        </button>
-                                    )}
-                                    <button onClick={() => finalizarTrabajo(trabajo.id)}
-                                        className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 text-sm font-medium transition-all shadow-sm">
-                                        Finalizar
-                                    </button>
-                                </div>
-                                )}
-                                </div>
-                            </div>
-                        </div>
-                            );
-                        })}
+                                    ) : null
+                                }
+                            />
+                        ))}
                     </div>
                     {totalPaginasTrabajosPendientes > 1 && (
                         <div className="flex items-center justify-center gap-3 mt-4">
@@ -1760,8 +1693,10 @@ export default function Inventario({
                     {/* ── Historial de trabajos ─────── */}
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div>
-                            <h2 className="text-2xl font-bold text-gray-800">Historial de trabajos</h2>
-                            <p className="text-sm text-gray-500">{historialTrabajos.length} registro{historialTrabajos.length !== 1 ? "s" : ""}</p>
+                            <h2 className="text-2xl font-bold text-gray-900">Historial de trabajos</h2>
+                            <p className="text-sm text-gray-500 mt-0.5">
+                                {historialTrabajos.length} registro{historialTrabajos.length !== 1 ? "s" : ""} finalizado{historialTrabajos.length !== 1 ? "s" : ""}
+                            </p>
                         </div>
                         <div className="flex items-center gap-2">
                             {(() => {
@@ -1855,13 +1790,23 @@ export default function Inventario({
             )}
 
             {cargandoTrabajos ? (
-                <div className="text-center py-8"><div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div></div>
+                <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
+                    <div className={`w-10 h-10 border-4 ${tema.spinner} rounded-full animate-spin mx-auto mb-3`} />
+                    <p className="text-sm text-gray-500">Cargando historial…</p>
+                </div>
             ) : historialTrabajos.length === 0 ? (
-                <div className="text-center py-8 bg-white rounded-2xl border border-gray-200"><p className="text-gray-500 text-sm">No hay trabajos en el historial.</p></div>
+                <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-200">
+                    <svg className={`w-14 h-14 ${tema.emptyIcon} mx-auto mb-4`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-gray-700 font-medium">No hay trabajos en el historial</p>
+                </div>
             ) : (
                 <>
-                    <div className="relative">
-                        <svg className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    <div className="relative bg-white rounded-2xl border border-gray-200 shadow-sm p-1">
+                        <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
                         <input
                             type="text"
                             value={busquedaTrabajos}
@@ -1869,87 +1814,52 @@ export default function Inventario({
                                 setBusquedaTrabajos(e.target.value);
                                 setPaginaTrabajos(1);
                             }}
-                            placeholder="Buscar en historial de trabajos..."
-                            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white"
+                            placeholder="Buscar por paciente, doctor, tratamiento…"
+                            className={`w-full pl-11 pr-4 py-3 border-0 rounded-xl focus:ring-2 ${tema.ring} outline-none transition-all bg-transparent`}
                         />
                     </div>
                     {trabajosFiltrados.length === 0 ? (
-                        <div className="text-center py-8 bg-white rounded-2xl border border-gray-200"><p className="text-gray-500 text-sm">No se encontraron trabajos.</p></div>
+                        <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-200">
+                            <p className="text-gray-600 font-medium text-sm">No se encontraron trabajos con esa búsqueda.</p>
+                        </div>
                     ) : (
                         <>
-                            <div className="grid gap-3">
-                                {trabajosPaginados.map((trabajo) => {
-                                    const tag = obtenerTagTrabajo(trabajo);
-                                    const tagColors = tag === "EXOCAD" ? "bg-orange-100 text-orange-700" : tag === "CEREC" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700";
-                                    return (
-                        <div key={trabajo.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-all">
-                            <div className="flex items-center gap-2 flex-wrap mb-2">
-                                <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${tagColors}`}>{tag}</span>
-                                <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${trabajo.status === "completed" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}>
-                                    {trabajo.status === "completed" ? "Finalizado" : "Pendiente"}
-                                </span>
-                                {trabajo.etapa && trabajo.status !== "completed" && (
-                                    <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${trabajo.etapa === "fresado" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
-                                        {trabajo.etapa === "fresado" ? "Fresado" : "Diseño"}
-                                    </span>
-                                )}
-                                {trabajo.reportes && trabajo.reportes.map((tipo, idx) => (
-                                    <span key={idx} className={`text-xs font-medium px-2.5 py-1 rounded-lg ${tipo === "error" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
-                                        {tipo === "error" ? "ERROR" : "FALLA"}
-                                    </span>
+                            <p className="text-sm text-gray-500 -mt-2 mb-1">
+                                {trabajosFiltrados.length} resultado{trabajosFiltrados.length !== 1 ? "s" : ""}
+                            </p>
+                            <div className="grid gap-4">
+                                {trabajosPaginados.map((trabajo) => (
+                                    <CerecTrabajoCard
+                                        key={trabajo.id}
+                                        variant="historial"
+                                        integradoEnLogistica={integradoEnLogistica}
+                                        trabajo={trabajo}
+                                        obtenerNombreTratamiento={obtenerNombreTratamiento}
+                                        obtenerTagTrabajo={obtenerTagTrabajo}
+                                        onRecibirLogistica={recibirEnLogistica}
+                                        recibiendoLogisticaId={recibiendoLogisticaId}
+                                        notaLaboratorista={
+                                            <LaboratoristaNotaTrabajo
+                                                jobId={trabajo.id}
+                                                user={user}
+                                                nota={notasLaboratorista[trabajo.id] ?? null}
+                                                onNotaChange={actualizarNotaLaboratorista}
+                                                soloLectura={!puedeGestionarTrabajos}
+                                            />
+                                        }
+                                        acciones={
+                                            puedeGestionarTrabajos ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => abrirModalReporte(trabajo)}
+                                                    className="text-sm text-orange-700 bg-orange-50 hover:bg-orange-100 font-semibold px-4 py-2 rounded-xl border border-orange-200 transition-colors"
+                                                >
+                                                    Reportar
+                                                </button>
+                                            ) : null
+                                        }
+                                    />
                                 ))}
-                                {trabajo.logistics_received_at && !integradoEnLogistica && (
-                                    <LogisticaTrabajoControl trabajo={trabajo} modo="lectura" />
-                                )}
-                            </div>
-                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-gray-800">
-                                {obtenerNombreTratamiento(trabajo)} — {trabajo.patient_name}
-                                {trabajo.pieza && <span className="text-gray-500 font-normal"> (Pieza: {trabajo.pieza})</span>}
-                            </h3>
-                            {trabajo.doctor && <div className="text-sm text-gray-600 mt-0.5">Dr. {trabajo.doctor}</div>}
-                            <div className="text-xs text-gray-500 mt-1">
-                                {trabajo.status === "completed" ? (
-                                    <>Finalizado por {trabajo.completed_by_name} · {new Date(trabajo.completed_at).toLocaleString("es-MX")} · Creado por {trabajo.created_by_name}: {new Date(trabajo.created_at).toLocaleString("es-MX")}</>
-                                ) : (
-                                    <>Creado: {new Date(trabajo.created_at).toLocaleString("es-MX")} · {trabajo.created_by_name}</>
-                                )}
-                                {trabajo.fecha_espera && <> · <span className="text-blue-600 font-medium">Esperado: {new Date(trabajo.fecha_espera + "T00:00:00").toLocaleDateString("es-MX")}</span></>}
-                            </div>
-                            <LaboratoristaNotaTrabajo
-                                jobId={trabajo.id}
-                                user={user}
-                                nota={notasLaboratorista[trabajo.id] ?? null}
-                                onNotaChange={actualizarNotaLaboratorista}
-                                soloLectura={!puedeGestionarTrabajos}
-                            />
-                            {trabajo.materiales && trabajo.materiales.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                    {trabajo.materiales.map((m, idx) => (
-                                        <span key={idx} className="bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded-lg">{m.item_name} ({m.quantity})</span>
-                                    ))}
-                                </div>
-                            )}
-                            {puedeGestionarTrabajos && (
-                                <div className="mt-2">
-                                    <button onClick={() => abrirModalReporte(trabajo)}
-                                        className="text-xs text-orange-600 hover:text-orange-700 font-medium hover:underline">Reportar</button>
-                                </div>
-                            )}
-                            </div>
-                            {integradoEnLogistica && (
-                                <LogisticaTrabajoControl
-                                    trabajo={trabajo}
-                                    modo="logistica"
-                                    onRecibir={recibirEnLogistica}
-                                    guardando={recibiendoLogisticaId === trabajo.id}
-                                />
-                            )}
-                            </div>
-                        </div>
-                                    );
-                                })}
                             </div>
                             {totalPaginasTrabajos > 1 && (
                                 <div className="flex items-center justify-center gap-3 mt-4">
