@@ -3,6 +3,7 @@ import { supabase } from "../supabase";
 import MovimientoModal from "./MovimientoModal";
 import NuevoTrabajoModal from "./NuevoTrabajoModal";
 import LaboratoristaNotaTrabajo from "./LaboratoristaNotaTrabajo";
+import TareasTab from "./TareasTab";
 import DentalCityLogo from "../assets/DentalCity.png";
 import { DOCTORES_CEREC } from "./doctoresCerec";
 
@@ -1350,6 +1351,7 @@ export default function Inventario({
                                 { v: "inventario", label: "Inventario", icon: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" },
                                 { v: "historial", label: "Historial", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
                                 { v: "notas", label: "Notas", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+                                { v: "tareas", label: "Tareas", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" },
                                 { v: "reportes", label: "Reportes", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" },
                             ].map(tab => (
                                 <button key={tab.v} onClick={() => { setSeccion(tab.v); if (tab.v === "notas") setPaginaNotas(1); }}
@@ -1397,16 +1399,17 @@ export default function Inventario({
                 </div>
 
                 {/* Mobile tabs */}
-                <div className="md:hidden border-t border-gray-100 flex">
+                <div className="md:hidden border-t border-gray-100 flex overflow-x-auto">
                     {[
                         { v: "trabajos", label: "Trabajos" },
                         { v: "inventario", label: "Inventario" },
                         { v: "historial", label: "Historial" },
                         { v: "notas", label: "Notas" },
+                        { v: "tareas", label: "Tareas" },
                         { v: "reportes", label: "Reportes" },
                     ].map(tab => (
                         <button key={tab.v} onClick={() => { setSeccion(tab.v); if (tab.v === "notas") setPaginaNotas(1); }}
-                            className={`flex-1 py-3 text-xs font-medium text-center transition-colors ${seccionVisible === tab.v ? "text-blue-700 border-b-2 border-blue-600 bg-blue-50/50" : "text-gray-500"}`}>
+                            className={`flex-shrink-0 min-w-[4.5rem] px-3 py-3 text-xs font-medium text-center transition-colors ${seccionVisible === tab.v ? "text-blue-700 border-b-2 border-blue-600 bg-blue-50/50" : "text-gray-500"}`}>
                             {tab.label}
                         </button>
                     ))}
@@ -2115,6 +2118,11 @@ export default function Inventario({
                     obtenerNombreTratamiento={obtenerNombreTratamiento}
                 />
             )}
+
+                {/* ─── TAB: TAREAS (staff) ──────────────────────── */}
+                {seccionVisible === "tareas" && (
+                    <TareasTab user={user} />
+                )}
 
                 {/* ─── TAB: NOTAS (laboratorista) ───────────────── */}
                 {seccionVisible === "notas" && (
