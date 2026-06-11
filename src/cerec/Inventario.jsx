@@ -2047,7 +2047,6 @@ export default function Inventario({
 
             {puedeGestionarTrabajos && puedeCrearTrabajos && mostrarModalTrabajo && (
                 <NuevoTrabajoModal
-                    items={items}
                     onClose={() => setMostrarModalTrabajo(false)}
                     onConfirm={crearTrabajo}
                 />

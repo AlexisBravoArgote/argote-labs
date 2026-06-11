@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { DOCTORES_CEREC } from "./doctoresCerec";
+import PiezaSelector from "./PiezaSelector";
 
 const TIPOS_TRATAMIENTO = [
     { value: "carillas", label: "Carilla", requiereMateriales: false, fresadoDespues: true },
@@ -18,7 +19,7 @@ const TIPOS_TRATAMIENTO = [
     { value: "rehabilitacion_completa", label: "Rehabilitación completa", requiereMateriales: false, fresadoDespues: true },
 ];
 
-export default function NuevoTrabajoModal({ items, onClose, onConfirm }) {
+export default function NuevoTrabajoModal({ onClose, onConfirm }) {
     const [tipoTratamiento, setTipoTratamiento] = useState("");
     const [nombreTratamiento, setNombreTratamiento] = useState("");
     const [nombrePaciente, setNombrePaciente] = useState("");
@@ -30,50 +31,12 @@ export default function NuevoTrabajoModal({ items, onClose, onConfirm }) {
 
     const tratamientoSeleccionado = TIPOS_TRATAMIENTO.find(t => t.value === tipoTratamiento);
     const requiereNombre = tratamientoSeleccionado?.requiereNombre;
+    const muestraPieza = Boolean(tratamientoSeleccionado?.fresadoDespues);
 
     useEffect(() => {
-        // Resetear cuando cambia el tipo de tratamiento
         setNombreTratamiento("");
+        setPieza("");
     }, [tipoTratamiento]);
-
-    function agregarMaterial(item) {
-        const existente = materialesSeleccionados.find(m => m.item_id === item.id);
-        if (existente) {
-            setMaterialesSeleccionados(
-                materialesSeleccionados.map(m =>
-                    m.item_id === item.id
-                        ? { ...m, quantity: m.quantity + 1 }
-                        : m
-                )
-            );
-        } else {
-            setMaterialesSeleccionados([
-                ...materialesSeleccionados,
-                { item_id: item.id, item_name: item.name, quantity: 1 }
-            ]);
-        }
-    }
-
-    function quitarMaterial(itemId) {
-        setMaterialesSeleccionados(
-            materialesSeleccionados.filter(m => m.item_id !== itemId)
-        );
-    }
-
-    function ajustarCantidad(itemId, delta) {
-        setMaterialesSeleccionados(
-            materialesSeleccionados.map(m => {
-                if (m.item_id === itemId) {
-                    const nuevaCantidad = Math.max(0, m.quantity + delta);
-                    if (nuevaCantidad === 0) {
-                        return null;
-                    }
-                    return { ...m, quantity: nuevaCantidad };
-                }
-                return m;
-            }).filter(Boolean)
-        );
-    }
 
     function validarYConfirmar() {
         setError("");
@@ -187,16 +150,13 @@ export default function NuevoTrabajoModal({ items, onClose, onConfirm }) {
                         />
                     </label>
 
-                    <label className="text-sm font-medium">
-                        Pieza
-                        <input
-                            type="text"
+                    {muestraPieza && (
+                        <PiezaSelector
                             value={pieza}
-                            onChange={(e) => setPieza(e.target.value)}
-                            placeholder="Ej: 21, 32, etc."
-                            className="border rounded p-2 w-full mt-1"
+                            onChange={setPieza}
+                            placeholder="Ej: 21, 32"
                         />
-                    </label>
+                    )}
 
                     <label className="text-sm font-medium">
                         Doctor *

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { DOCTORES_CEREC } from "./doctoresCerec";
+import PiezaSelector from "./PiezaSelector";
 
 const TIPOS_TRATAMIENTO = [
     { value: "carillas", label: "Carilla" },
@@ -17,6 +18,17 @@ const TIPOS_TRATAMIENTO = [
     { value: "otra", label: "Otro", requiereNombre: true },
     { value: "rehabilitacion_completa", label: "Rehabilitación completa" },
 ];
+
+const TRATAMIENTOS_CON_PIEZA = new Set([
+    "carillas",
+    "corona_implante",
+    "coronas",
+    "diseno_sonrisa",
+    "incrustaciones",
+    "provisional_pmma",
+    "otra",
+    "rehabilitacion_completa",
+]);
 
 const inputClass =
     "w-full mt-1.5 px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-shadow";
@@ -37,9 +49,11 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEn
 
     const tratamientoSeleccionado = TIPOS_TRATAMIENTO.find((t) => t.value === tipoTratamiento);
     const requiereNombre = tratamientoSeleccionado?.requiereNombre;
+    const muestraPieza = TRATAMIENTOS_CON_PIEZA.has(tipoTratamiento);
 
     useEffect(() => {
         setNombreTratamiento("");
+        setPieza("");
     }, [tipoTratamiento]);
 
     async function validarYConfirmar() {
@@ -106,21 +120,21 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEn
 
     return (
         <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50"
             onClick={() => {
                 if (!enviando) onClose();
             }}
         >
             <div
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-emerald-100"
+                className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col border-0 sm:border border-emerald-100 min-h-0"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="sticky top-0 z-10 bg-gradient-to-r from-emerald-600 to-teal-700 px-6 py-4 flex items-start justify-between gap-3">
+                <div className="sticky top-0 z-10 bg-gradient-to-r from-emerald-600 to-teal-700 px-4 py-3 sm:px-6 sm:py-4 flex items-start justify-between gap-2 sm:gap-3 shrink-0">
                     <div className="min-w-0">
                         <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-100/90">
                             Nuevo envío
                         </p>
-                        <h3 className="text-lg sm:text-xl font-bold text-white leading-tight">
+                        <h3 className="text-base sm:text-xl font-bold text-white leading-tight">
                             Trabajo al laboratorio CEREC
                         </h3>
                     </div>
@@ -137,9 +151,9 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEn
                     </button>
                 </div>
 
-                <div className="overflow-y-auto flex-1 px-6 py-5">
+                <div className="overflow-y-auto flex-1 min-h-0 px-4 py-3 sm:px-6 sm:py-5 overscroll-contain">
                     {mensajeError && (
-                        <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 flex items-start gap-2">
+                        <div className="mb-3 sm:mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2 flex sm:py-2.5 items-start gap-2">
                             <svg className="w-5 h-5 shrink-0 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                                 <path
                                     fillRule="evenodd"
@@ -151,11 +165,11 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEn
                         </div>
                     )}
 
-                    <div className="mb-5 flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-100">
-                        <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                    <div className="mb-3 sm:mb-5 flex items-center gap-2.5 sm:gap-3 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs sm:text-sm font-bold shrink-0">
                             {(perfil?.full_name || "?").charAt(0).toUpperCase()}
                         </div>
-                        <div className="text-sm text-gray-700">
+                        <div className="text-xs sm:text-sm text-gray-700 min-w-0">
                             <span className="text-gray-500">
                                 {seleccionarDoctor ? "Enviando como asistente" : "Doctor"}
                             </span>
@@ -163,9 +177,9 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEn
                         </div>
                     </div>
 
-                    <div className="grid gap-5">
+                    <div className="grid gap-3 sm:gap-5">
                         {seleccionarDoctor && (
-                            <section className="space-y-4 pb-5 border-b border-gray-100">
+                            <section className="space-y-3 sm:space-y-4 pb-3 sm:pb-5 border-b border-gray-100">
                                 <h4 className="text-sm font-bold text-gray-800">Doctor responsable</h4>
                                 <label className={labelClass}>
                                     Doctor *
@@ -200,7 +214,7 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEn
                             </section>
                         )}
 
-                        <section className="space-y-4 pb-5 border-b border-gray-100">
+                        <section className="space-y-3 sm:space-y-4 pb-3 sm:pb-5 border-b border-gray-100">
                             <h4 className="text-sm font-bold text-gray-800">Tratamiento y paciente</h4>
                             <label className={labelClass}>
                                 Tipo de tratamiento *
@@ -242,17 +256,16 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEn
                                 />
                             </label>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <label className={labelClass}>
-                                    Pieza
-                                    <input
-                                        type="text"
+                            <div className={`grid grid-cols-1 ${muestraPieza ? "sm:grid-cols-2" : ""} gap-3 sm:gap-4`}>
+                                {muestraPieza && (
+                                    <PiezaSelector
                                         value={pieza}
-                                        onChange={(e) => setPieza(e.target.value)}
+                                        onChange={setPieza}
                                         placeholder="Ej: 21, 32"
-                                        className={inputClass}
+                                        inputClass={inputClass.replace(" mt-1.5", "")}
+                                        labelClass={labelClass}
                                     />
-                                </label>
+                                )}
                                 <label className={labelClass}>
                                     Color
                                     <input
@@ -266,7 +279,7 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEn
                             </div>
                         </section>
 
-                        <section className="space-y-4">
+                        <section className="space-y-3 sm:space-y-4 pb-1">
                             <h4 className="text-sm font-bold text-gray-800">Entrega y notas</h4>
                             <label className={labelClass}>
                                 Fecha de espera *
@@ -286,9 +299,9 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEn
                                     value={notasDoctor}
                                     onChange={(e) => setNotasDoctor(e.target.value)}
                                     placeholder="Indicaciones especiales, preferencias de contacto, etc."
-                                    className={`${inputClass} h-24 resize-y`}
+                                    className={`${inputClass} h-20 sm:h-24 resize-y`}
                                 />
-                                <p className="text-xs text-gray-500 mt-1.5 normal-case font-normal">
+                                <p className="text-[11px] sm:text-xs text-gray-500 mt-1 normal-case font-normal sm:mt-1.5">
                                     Visible solo para el equipo de laboratorio.
                                 </p>
                             </label>
@@ -296,12 +309,12 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEn
                     </div>
                 </div>
 
-                <div className="sticky bottom-0 border-t border-gray-100 bg-gray-50/95 backdrop-blur px-6 py-4 flex flex-col-reverse sm:flex-row justify-end gap-3">
+                <div className="sticky bottom-0 shrink-0 border-t border-gray-100 bg-gray-50/95 backdrop-blur px-4 py-3 sm:px-6 sm:py-4 flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4">
                     <button
                         type="button"
                         disabled={enviando}
                         onClick={onClose}
-                        className="px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-white disabled:opacity-50 transition-colors"
+                        className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-white disabled:opacity-50 transition-colors"
                     >
                         Cancelar
                     </button>
@@ -309,7 +322,7 @@ export default function ModalEnviarTrabajo({ perfil, onClose, onConfirm, errorEn
                         type="button"
                         disabled={enviando}
                         onClick={() => void validarYConfirmar()}
-                        className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-semibold hover:from-emerald-700 hover:to-teal-700 disabled:opacity-60 shadow-md shadow-emerald-500/20 transition-all"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-semibold hover:from-emerald-700 hover:to-teal-700 disabled:opacity-60 shadow-md shadow-emerald-500/20 transition-all"
                     >
                         {enviando ? (
                             <>
