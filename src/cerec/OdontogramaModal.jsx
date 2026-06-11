@@ -19,18 +19,18 @@ function Diente({ numero, seleccionado, onToggle }) {
             title={`Pieza ${numero}`}
             className={`
                 relative flex flex-col items-center justify-center
-                w-8 h-10 sm:w-10 sm:h-12 transition-all duration-150
-                border-2 ${forma}
+                flex-1 min-w-0 h-9 sm:flex-none sm:w-10 sm:h-12
+                transition-all duration-150 border-2 ${forma}
                 ${seleccionado
-                    ? "bg-blue-600 border-blue-700 text-white shadow-md scale-105 z-10"
+                    ? "bg-blue-600 border-blue-700 text-white shadow-md sm:scale-105 z-10"
                     : "bg-white border-gray-300 text-gray-700 hover:border-blue-400 hover:bg-blue-50"
                 }
             `}
         >
-            <span className="text-[10px] sm:text-xs font-bold leading-none">{numero}</span>
+            <span className="text-[8px] sm:text-xs font-bold leading-none">{numero}</span>
             <svg
                 viewBox="0 0 24 28"
-                className={`w-5 h-6 mt-0.5 ${seleccionado ? "text-blue-100" : "text-gray-400"}`}
+                className={`w-3.5 h-4 sm:w-5 sm:h-6 mt-0.5 shrink-0 ${seleccionado ? "text-blue-100" : "text-gray-400"}`}
                 fill="currentColor"
             >
                 {esMolar && (
@@ -52,8 +52,10 @@ function Diente({ numero, seleccionado, onToggle }) {
 
 function FilaCuadrantes({ cuadranteIzq, cuadranteDer, seleccionadas, onToggle, esSuperior }) {
     return (
-        <div className={`flex items-${esSuperior ? "end" : "start"} justify-center gap-0.5 sm:gap-1`}>
-            <div className="flex gap-0.5 sm:gap-1">
+        <div
+            className={`flex w-full min-w-0 justify-center gap-px sm:gap-1 ${esSuperior ? "items-end" : "items-start"}`}
+        >
+            <div className="flex flex-1 min-w-0 gap-px sm:gap-1">
                 {cuadranteIzq.map((n) => (
                     <Diente
                         key={n}
@@ -63,8 +65,8 @@ function FilaCuadrantes({ cuadranteIzq, cuadranteDer, seleccionadas, onToggle, e
                     />
                 ))}
             </div>
-            <div className="w-px h-14 sm:h-16 bg-gray-300 mx-1 sm:mx-2 self-center" />
-            <div className="flex gap-0.5 sm:gap-1">
+            <div className="w-px shrink-0 h-10 sm:h-16 bg-gray-300 mx-0.5 sm:mx-2 self-center" />
+            <div className="flex flex-1 min-w-0 gap-px sm:gap-1">
                 {cuadranteDer.map((n) => (
                     <Diente
                         key={n}
@@ -136,13 +138,14 @@ export default function OdontogramaModal({ piezaInicial = "", onClose, onConfirm
                 </div>
 
                 <div className="overflow-y-auto flex-1 min-h-0 p-3 sm:p-6 overscroll-contain">
+                    <div className="w-full min-w-0 max-w-full overflow-hidden">
                     <div className="flex justify-between text-[9px] sm:text-xs text-gray-500 font-medium mb-1.5 sm:mb-2 px-0.5">
                         <span className="truncate pr-1">Der. paciente</span>
                         <span className="truncate pl-1 text-right">Izq. paciente</span>
                     </div>
 
                     {/* Arco superior */}
-                    <div className="mb-1">
+                    <div className="mb-1 w-full min-w-0">
                         <p className="text-center text-xs text-gray-400 mb-2 uppercase tracking-wide">Arco superior</p>
                         <FilaCuadrantes
                             cuadranteIzq={CUADRANTES.superiorDerecho}
@@ -161,7 +164,7 @@ export default function OdontogramaModal({ piezaInicial = "", onClose, onConfirm
                     </div>
 
                     {/* Arco inferior */}
-                    <div>
+                    <div className="w-full min-w-0">
                         <FilaCuadrantes
                             cuadranteIzq={CUADRANTES.inferiorDerecho}
                             cuadranteDer={CUADRANTES.inferiorIzquierdo}
@@ -170,6 +173,7 @@ export default function OdontogramaModal({ piezaInicial = "", onClose, onConfirm
                             esSuperior={false}
                         />
                         <p className="text-center text-xs text-gray-400 mt-2 uppercase tracking-wide">Arco inferior</p>
+                    </div>
                     </div>
 
                     {/* Piezas seleccionadas */}
