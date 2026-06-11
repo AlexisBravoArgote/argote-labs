@@ -4,6 +4,7 @@ import MovimientoModal from "./MovimientoModal";
 import NuevoTrabajoModal from "./NuevoTrabajoModal";
 import LaboratoristaNotaTrabajo from "./LaboratoristaNotaTrabajo";
 import TareasTab from "./TareasTab";
+import ReporteMensualLab from "./ReporteMensualLab";
 import CerecTrabajoCard from "./CerecTrabajoCard";
 import { temaAccent } from "./cerecTrabajoShared";
 import DentalCityLogo from "../assets/DentalCity.png";
@@ -2208,7 +2209,9 @@ export default function Inventario({
 
                 {/* ─── TAB: REPORTES ─────────────────────────────── */}
                 {seccionVisible === "reportes" && (
-                <div className="space-y-6">
+                <div className="space-y-8">
+
+                    <ReporteMensualLab obtenerNombreTratamiento={obtenerNombreTratamiento} />
 
                     {/* ── Reporte: Stock Agotados ─────────────────── */}
                     <div>

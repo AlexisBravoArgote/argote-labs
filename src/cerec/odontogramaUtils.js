@@ -15,14 +15,18 @@ export const TODAS_LAS_PIEZAS = [
     ...CUADRANTES.inferiorDerecho,
 ];
 
-/** Convierte "21, 32" o "21 32" en lista ordenada de números */
+/** Convierte "21, 32", "16 y 17", "16,17", "16 17" en lista ordenada de números FDI */
 export function parsePiezas(texto) {
     if (!texto?.trim()) return [];
+    const normalizado = texto
+        .trim()
+        .replace(/\s+y\s+/gi, ",")
+        .replace(/\//g, ",");
     return [...new Set(
-        texto
+        normalizado
             .split(/[,;\s]+/)
             .map((p) => parseInt(p.trim(), 10))
-            .filter((n) => TODAS_LAS_PIEZAS.includes(n))
+            .filter((n) => !Number.isNaN(n) && TODAS_LAS_PIEZAS.includes(n))
     )].sort((a, b) => a - b);
 }
 
