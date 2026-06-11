@@ -19,7 +19,7 @@ function Diente({ numero, seleccionado, onToggle }) {
             title={`Pieza ${numero}`}
             className={`
                 relative flex flex-col items-center justify-center
-                flex-1 min-w-0 h-9 sm:flex-none sm:w-10 sm:h-12
+                flex-1 min-w-0 h-9 sm:flex-none sm:w-11 sm:h-14
                 transition-all duration-150 border-2 ${forma}
                 ${seleccionado
                     ? "bg-blue-600 border-blue-700 text-white shadow-md sm:scale-105 z-10"
@@ -53,9 +53,9 @@ function Diente({ numero, seleccionado, onToggle }) {
 function FilaCuadrantes({ cuadranteIzq, cuadranteDer, seleccionadas, onToggle, esSuperior }) {
     return (
         <div
-            className={`flex w-full min-w-0 justify-center gap-px sm:gap-1 ${esSuperior ? "items-end" : "items-start"}`}
+            className={`flex w-full min-w-0 justify-center gap-px sm:gap-1.5 max-w-full sm:max-w-3xl sm:mx-auto ${esSuperior ? "items-end" : "items-start"}`}
         >
-            <div className="flex flex-1 min-w-0 gap-px sm:gap-1">
+            <div className="flex flex-1 min-w-0 gap-px sm:flex-none sm:gap-1.5">
                 {cuadranteIzq.map((n) => (
                     <Diente
                         key={n}
@@ -65,8 +65,8 @@ function FilaCuadrantes({ cuadranteIzq, cuadranteDer, seleccionadas, onToggle, e
                     />
                 ))}
             </div>
-            <div className="w-px shrink-0 h-10 sm:h-16 bg-gray-300 mx-0.5 sm:mx-2 self-center" />
-            <div className="flex flex-1 min-w-0 gap-px sm:gap-1">
+            <div className="w-px shrink-0 h-10 sm:h-[4.5rem] bg-gray-300 mx-0.5 sm:mx-3 self-center" />
+            <div className="flex flex-1 min-w-0 gap-px sm:flex-none sm:gap-1.5">
                 {cuadranteDer.map((n) => (
                     <Diente
                         key={n}
@@ -113,7 +113,7 @@ export default function OdontogramaModal({ piezaInicial = "", onClose, onConfirm
             onClick={onClose}
         >
             <div
-                className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[95vh] overflow-hidden flex flex-col min-h-0"
+                className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-2xl sm:max-w-4xl h-[100dvh] sm:h-auto sm:max-h-[95vh] overflow-hidden flex flex-col min-h-0"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-3 sm:px-5 sm:py-4 rounded-t-2xl shrink-0">
@@ -138,10 +138,10 @@ export default function OdontogramaModal({ piezaInicial = "", onClose, onConfirm
                 </div>
 
                 <div className="overflow-y-auto flex-1 min-h-0 p-3 sm:p-6 overscroll-contain">
-                    <div className="w-full min-w-0 max-w-full overflow-hidden">
+                    <div className="w-full min-w-0 max-w-full sm:overflow-visible">
                     <div className="flex justify-between text-[9px] sm:text-xs text-gray-500 font-medium mb-1.5 sm:mb-2 px-0.5">
-                        <span className="truncate pr-1">Der. paciente</span>
-                        <span className="truncate pl-1 text-right">Izq. paciente</span>
+                        <span className="truncate pr-1">Izq. paciente</span>
+                        <span className="truncate pl-1 text-right">Der. paciente</span>
                     </div>
 
                     {/* Arco superior */}
