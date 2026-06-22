@@ -356,6 +356,7 @@ export default function LogisticaView({ user, perfil }) {
     const [vista, setVista] = useState("dashboard"); // dashboard, inventario, movimientos, cerec_trabajos, cerec_historial
     const [busqueda, setBusqueda] = useState("");
     const [filtroCategoria, setFiltroCategoria] = useState("todas");
+    const [filtroUbicacion, setFiltroUbicacion] = useState("todas");
     const [filtroStock, setFiltroStock] = useState("todos"); // todos, bajo, ok, agotado
     const [vistaGrid, setVistaGrid] = useState(true);
     const [modalItem, setModalItem] = useState(null); // null = cerrado, "new" = nuevo, item = editar
@@ -402,16 +403,35 @@ export default function LogisticaView({ user, perfil }) {
     }, []);
 
     // ─── Datos derivados ───────────────────────────────────────────
+    const ubicacionesDisponibles = useMemo(() => {
+        const set = new Set();
+        for (const i of items) {
+            const loc = i.location?.trim();
+            if (loc) set.add(loc);
+        }
+        return [...set].sort((a, b) => a.localeCompare(b, "es"));
+    }, [items]);
+
     const itemsFiltrados = useMemo(() => {
         let f = items;
         const q = busqueda.trim().toLowerCase();
-        if (q) f = f.filter(i => i.name.toLowerCase().includes(q) || i.sku?.toLowerCase().includes(q) || i.brand?.toLowerCase().includes(q));
+        if (q) {
+            f = f.filter(i =>
+                i.name.toLowerCase().includes(q) ||
+                i.sku?.toLowerCase().includes(q) ||
+                i.brand?.toLowerCase().includes(q) ||
+                i.location?.toLowerCase().includes(q)
+            );
+        }
         if (filtroCategoria !== "todas") f = f.filter(i => i.category_id === filtroCategoria);
+        if (filtroUbicacion !== "todas") {
+            f = f.filter(i => (i.location?.trim() || "") === filtroUbicacion);
+        }
         if (filtroStock === "agotado") f = f.filter(i => i.quantity === 0);
         else if (filtroStock === "bajo") f = f.filter(i => i.quantity > 0 && i.quantity <= i.min_stock);
         else if (filtroStock === "ok") f = f.filter(i => i.quantity > i.min_stock);
         return f;
-    }, [items, busqueda, filtroCategoria, filtroStock]);
+    }, [items, busqueda, filtroCategoria, filtroUbicacion, filtroStock]);
 
     const stats = useMemo(() => ({
         total: items.length,
@@ -659,12 +679,19 @@ export default function LogisticaView({ user, perfil }) {
                                 </svg>
                                 <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
                                     className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
-                                    placeholder="Buscar por nombre, SKU o marca..." />
+                                    placeholder="Buscar por nombre, SKU, marca o ubicación..." />
                             </div>
                             <select value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)}
                                 className="px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all bg-white text-sm">
                                 <option value="todas">Todas las categorías</option>
                                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                            <select value={filtroUbicacion} onChange={e => setFiltroUbicacion(e.target.value)}
+                                className="px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all bg-white text-sm min-w-[10rem]">
+                                <option value="todas">Todas las ubicaciones</option>
+                                {ubicacionesDisponibles.map((loc) => (
+                                    <option key={loc} value={loc}>{loc}</option>
+                                ))}
                             </select>
                             <select value={filtroStock} onChange={e => setFiltroStock(e.target.value)}
                                 className="px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all bg-white text-sm">
