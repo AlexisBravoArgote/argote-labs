@@ -26,6 +26,7 @@ const TRATAMIENTOS_CON_PIEZA = new Set([
     "diseno_sonrisa",
     "incrustaciones",
     "provisional_pmma",
+    "rpa",
     "otra",
     "rehabilitacion_completa",
 ]);

@@ -12,7 +12,7 @@ const TIPOS_TRATAMIENTO = [
     { value: "incrustaciones", label: "Incrustación", requiereMateriales: false, fresadoDespues: true },
     { value: "modelo_ortodoncia", label: "Modelo de ortodoncia", requiereMateriales: false },
     { value: "modelos_guarda_acetato", label: "Modelo para guarda de acetato", requiereMateriales: false },
-    { value: "rpa", label: "RPA", requiereMateriales: false },
+    { value: "rpa", label: "RPA", requiereMateriales: false, fresadoDespues: true },
     { value: "encerado_digital", label: "Encerado digital", requiereMateriales: false },
     { value: "provisional_pmma", label: "Provisional PMMA", requiereMateriales: false, fresadoDespues: true },
     { value: "otra", label: "Otro", requiereMateriales: false, fresadoDespues: true, requiereNombre: true },
