@@ -10,6 +10,45 @@ import { temaAccent } from "./cerecTrabajoShared";
 import DentalCityLogo from "../assets/DentalCity.png";
 import { DOCTORES_CEREC } from "./doctoresCerec";
 
+/** PostgREST `.in()` va por query string; muchos UUIDs rompen la petición y las notas desaparecen de la UI. */
+const IN_FILTER_CHUNK = 80;
+const NOTAS_COLUMNS = "job_id, content, updated_at, updated_by";
+const JOBS_NOTA_COLUMNS = "id, treatment_type, treatment_name, patient_name, pieza, doctor, status, etapa, created_at, completed_at";
+
+async function fetchInChunks(table, columns, idField, ids) {
+    const rows = [];
+    for (let i = 0; i < ids.length; i += IN_FILTER_CHUNK) {
+        const chunk = ids.slice(i, i + IN_FILTER_CHUNK);
+        const { data, error } = await supabase.from(table).select(columns).in(idField, chunk);
+        if (error) return { data: rows, error };
+        if (data?.length) rows.push(...data);
+    }
+    return { data: rows, error: null };
+}
+
+async function fetchAllNotasLaboratorista() {
+    const pageSize = 1000;
+    const rows = [];
+    for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+            .from("job_laboratorista_notes")
+            .select(NOTAS_COLUMNS)
+            .order("updated_at", { ascending: false })
+            .range(from, from + pageSize - 1);
+        if (error) return { data: rows, error };
+        if (data?.length) rows.push(...data);
+        if (!data || data.length < pageSize) break;
+    }
+    return { data: rows, error: null };
+}
+
+function ubicacionTrabajoNota(trabajo) {
+    if (!trabajo) return null;
+    if (trabajo.status === "completed") return "historial";
+    if (trabajo.etapa === "nuevo") return "nuevo";
+    return "proceso";
+}
+
 export default function Inventario({
     user,
     perfil,
@@ -70,6 +109,7 @@ export default function Inventario({
     const [trabajosPendientes, setTrabajosPendientes] = useState([]);
     const [historialTrabajos, setHistorialTrabajos] = useState([]);
     const [notasLaboratorista, setNotasLaboratorista] = useState({});
+    const [trabajosExtraNotas, setTrabajosExtraNotas] = useState([]);
     const [cargandoTrabajos, setCargandoTrabajos] = useState(false);
     const [reportes, setReportes] = useState([]);
     const [cargandoReportes, setCargandoReportes] = useState(false);
@@ -301,6 +341,10 @@ export default function Inventario({
         for (const t of historialTrabajos) {
             trabajoPorId.set(t.id, { trabajo: t, ubicacion: "historial" });
         }
+        for (const t of trabajosExtraNotas) {
+            if (trabajoPorId.has(t.id)) continue;
+            trabajoPorId.set(t.id, { trabajo: t, ubicacion: ubicacionTrabajoNota(t) });
+        }
         const filas = [];
         for (const nota of Object.values(notasLaboratorista)) {
             if (!nota?.content?.trim()) continue;
@@ -310,7 +354,7 @@ export default function Inventario({
         }
         filas.sort((a, b) => b.ts - a.ts);
         return filas;
-    }, [notasLaboratorista, trabajosNuevos, trabajosPendientes, historialTrabajos]);
+    }, [notasLaboratorista, trabajosNuevos, trabajosPendientes, historialTrabajos, trabajosExtraNotas]);
 
     const totalPaginasNotas = Math.max(1, Math.ceil(notasActivasOrdenadas.length / itemsPorPagina));
     const notasPaginadas = useMemo(() => {
@@ -626,20 +670,46 @@ export default function Inventario({
 
         const allJobIds = [...new Set([...nuevosLista, ...pendientesLista, ...historialLista].map((t) => t.id))];
         const notasMap = {};
-        if (allJobIds.length > 0) {
-            const { data: filasNotas, error: errNotas } = await supabase
-                .from("job_laboratorista_notes")
-                .select("job_id, content, updated_at, updated_by")
-                .in("job_id", allJobIds);
-            if (!errNotas && filasNotas) {
-                for (const row of filasNotas) {
-                    notasMap[row.job_id] = row;
-                }
-            } else if (errNotas && !String(errNotas.message || "").includes("does not exist") && !String(errNotas.message || "").includes("schema cache")) {
+        let extraNotasLista = [];
+
+        const { data: filasNotasDirectas, error: errNotas } = await fetchAllNotasLaboratorista();
+
+        let filasNotas = filasNotasDirectas || [];
+        if (errNotas) {
+            const msg = String(errNotas.message || "");
+            if (!msg.includes("does not exist") && !msg.includes("schema cache")) {
                 console.error("Error cargando notas del laboratorista:", errNotas);
             }
+            if (allJobIds.length > 0) {
+                const fallback = await fetchInChunks("job_laboratorista_notes", NOTAS_COLUMNS, "job_id", allJobIds);
+                if (fallback.error && !String(fallback.error.message || "").includes("does not exist") && !String(fallback.error.message || "").includes("schema cache")) {
+                    console.error("Error cargando notas del laboratorista (por trabajo):", fallback.error);
+                }
+                filasNotas = fallback.data || [];
+            }
         }
+
+        for (const row of filasNotas) {
+            notasMap[row.job_id] = row;
+        }
+
+        const knownJobIds = new Set(allJobIds);
+        const missingJobIds = [...new Set(
+            filasNotas
+                .filter((n) => n.content?.trim() && n.job_id && !knownJobIds.has(n.job_id))
+                .map((n) => n.job_id)
+        )];
+        if (missingJobIds.length > 0) {
+            const extra = await fetchInChunks("jobs", JOBS_NOTA_COLUMNS, "id", missingJobIds);
+            if (extra.error) {
+                console.error("Error cargando trabajos de notas del laboratorista:", extra.error);
+            } else {
+                extraNotasLista = extra.data || [];
+            }
+        }
+
         setNotasLaboratorista(notasMap);
+        setTrabajosExtraNotas(extraNotasLista);
         setTrabajosNuevos(nuevosLista);
         setTrabajosPendientes(pendientesLista);
         setHistorialTrabajos(historialLista);

@@ -248,13 +248,21 @@ export default function Admin({ user, onVolver }) {
             const jobIds = trabajosBase.map(t => t.id);
             const notasPorJob = new Map();
             if (jobIds.length > 0) {
-                const { data: filasNotas, error: errNotas } = await supabase
-                    .from("job_laboratorista_notes")
-                    .select("job_id, content, updated_at, updated_by")
-                    .in("job_id", jobIds);
-                if (!errNotas && filasNotas) {
-                    for (const row of filasNotas) {
-                        notasPorJob.set(row.job_id, row);
+                const chunkSize = 80;
+                for (let i = 0; i < jobIds.length; i += chunkSize) {
+                    const chunk = jobIds.slice(i, i + chunkSize);
+                    const { data: filasNotas, error: errNotas } = await supabase
+                        .from("job_laboratorista_notes")
+                        .select("job_id, content, updated_at, updated_by")
+                        .in("job_id", chunk);
+                    if (errNotas) {
+                        console.error("Error cargando notas del laboratorista:", errNotas);
+                        break;
+                    }
+                    if (filasNotas) {
+                        for (const row of filasNotas) {
+                            notasPorJob.set(row.job_id, row);
+                        }
                     }
                 }
             }
