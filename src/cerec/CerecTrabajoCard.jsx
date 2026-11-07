@@ -1,4 +1,5 @@
 import LogisticaTrabajoControl from "./LogisticaTrabajoControl";
+import DentaclinicCheck from "./DentaclinicCheck";
 import {
     MetaItem,
     tagColors,
@@ -20,6 +21,8 @@ import {
  * @param {import("react").ReactNode} [props.notaLaboratorista]
  * @param {(id: string) => void} [props.onRecibirLogistica]
  * @param {string | null} [props.recibiendoLogisticaId]
+ * @param {(id: string, marcar: boolean) => void} [props.onToggleDentaclinic]
+ * @param {string | null} [props.guardandoDentaclinicId]
  */
 export default function CerecTrabajoCard({
     variant,
@@ -31,6 +34,8 @@ export default function CerecTrabajoCard({
     notaLaboratorista,
     onRecibirLogistica,
     recibiendoLogisticaId,
+    onToggleDentaclinic,
+    guardandoDentaclinicId,
 }) {
     const accent = bordeAccentTrabajo(trabajo, variant);
 
@@ -227,6 +232,13 @@ export default function CerecTrabajoCard({
                                     modo="logistica"
                                     onRecibir={onRecibirLogistica}
                                     guardando={recibiendoLogisticaId === trabajo.id}
+                                />
+                            )}
+                            {integradoEnLogistica && onToggleDentaclinic && (
+                                <DentaclinicCheck
+                                    trabajo={trabajo}
+                                    onToggle={onToggleDentaclinic}
+                                    guardando={guardandoDentaclinicId === trabajo.id}
                                 />
                             )}
                             {acciones}

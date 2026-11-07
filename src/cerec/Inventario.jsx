@@ -120,6 +120,8 @@ export default function Inventario({
     const [seccion, setSeccion] = useState(seccionForzada || "trabajos");
     const seccionVisible = seccionForzada ?? seccion;
     const [recibiendoLogisticaId, setRecibiendoLogisticaId] = useState(null);
+    const [guardandoDentaclinicId, setGuardandoDentaclinicId] = useState(null);
+    const columnasDentaclinic = integradoEnLogistica ? ", dentaclinic_at, dentaclinic_by" : "";
     const tema = temaAccent(integradoEnLogistica);
 
     useEffect(() => {
@@ -432,7 +434,7 @@ export default function Inventario({
         // Cargar trabajos nuevos (enviados por doctor, sin iniciar)
         const { data: nuevos, error: errNuevos } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, created_by, created_at, etapa, fecha_espera, notas_doctor, reciclado, logistics_received_at, logistics_received_by")
+            .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, created_by, created_at, etapa, fecha_espera, notas_doctor, reciclado, logistics_received_at, logistics_received_by" + columnasDentaclinic)
             .eq("status", "pending")
             .eq("etapa", "nuevo")
             .order("fecha_espera", { ascending: true });
@@ -472,7 +474,7 @@ export default function Inventario({
         // Cargar trabajos en proceso
         const { data: pendientes, error: errPendientes } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, created_by, created_at, etapa, fecha_espera, notas_doctor, reciclado, logistics_received_at, logistics_received_by")
+            .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, created_by, created_at, etapa, fecha_espera, notas_doctor, reciclado, logistics_received_at, logistics_received_by" + columnasDentaclinic)
             .eq("status", "pending")
             .neq("etapa", "nuevo")
             .order("created_at", { ascending: false });
@@ -582,7 +584,7 @@ export default function Inventario({
         // Cargar historial de trabajos
         const { data: historial, error: errHistorial } = await supabase
             .from("jobs")
-            .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera, notas_doctor, reciclado, logistics_received_at, logistics_received_by")
+            .select("id, treatment_type, treatment_name, patient_name, pieza, color, doctor, status, created_by, completed_by, created_at, completed_at, etapa, fecha_espera, notas_doctor, reciclado, logistics_received_at, logistics_received_by" + columnasDentaclinic)
             .eq("status", "completed")
             .not("completed_at", "is", null)
             .order("completed_at", { ascending: false });
@@ -752,6 +754,30 @@ export default function Inventario({
             logistics_received_at: ahora,
             logistics_received_by: user.id,
         });
+    }
+
+    async function toggleDentaclinic(jobId, marcar) {
+        if (!user?.id) {
+            setError("No hay sesión activa.");
+            return;
+        }
+        setGuardandoDentaclinicId(jobId);
+        setError("");
+        const cambios = marcar
+            ? { dentaclinic_at: new Date().toISOString(), dentaclinic_by: user.id }
+            : { dentaclinic_at: null, dentaclinic_by: null };
+        const { error: err } = await supabase
+            .from("jobs")
+            .update(cambios)
+            .eq("id", jobId);
+
+        setGuardandoDentaclinicId(null);
+        if (err) {
+            console.error(err);
+            setError(err.message || "No se pudo actualizar Dentaclinic.");
+            return;
+        }
+        actualizarTrabajoEnListas(jobId, cambios);
     }
 
     function actualizarNotaLaboratorista(jobId, nota) {
@@ -1565,6 +1591,8 @@ export default function Inventario({
                                         obtenerNombreTratamiento={obtenerNombreTratamiento}
                                         onRecibirLogistica={recibirEnLogistica}
                                         recibiendoLogisticaId={recibiendoLogisticaId}
+                                        onToggleDentaclinic={integradoEnLogistica ? toggleDentaclinic : undefined}
+                                        guardandoDentaclinicId={guardandoDentaclinicId}
                                         notaLaboratorista={
                                             <LaboratoristaNotaTrabajo
                                                 jobId={trabajo.id}
@@ -1666,6 +1694,8 @@ export default function Inventario({
                                 obtenerTagTrabajo={obtenerTagTrabajo}
                                 onRecibirLogistica={recibirEnLogistica}
                                 recibiendoLogisticaId={recibiendoLogisticaId}
+                                onToggleDentaclinic={integradoEnLogistica ? toggleDentaclinic : undefined}
+                                guardandoDentaclinicId={guardandoDentaclinicId}
                                 notaLaboratorista={
                                     <LaboratoristaNotaTrabajo
                                         jobId={trabajo.id}
@@ -1909,6 +1939,8 @@ export default function Inventario({
                                         obtenerTagTrabajo={obtenerTagTrabajo}
                                         onRecibirLogistica={recibirEnLogistica}
                                         recibiendoLogisticaId={recibiendoLogisticaId}
+                                        onToggleDentaclinic={integradoEnLogistica ? toggleDentaclinic : undefined}
+                                        guardandoDentaclinicId={guardandoDentaclinicId}
                                         notaLaboratorista={
                                             <LaboratoristaNotaTrabajo
                                                 jobId={trabajo.id}
