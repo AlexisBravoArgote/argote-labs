@@ -501,22 +501,15 @@ export default function Inventario({
             const jobIds = trabajosConNombres.map(t => t.id);
             if (jobIds.length > 0) {
                 const [{ data: materiales, error: errMateriales }, { data: reportesData, error: errReportes }] = await Promise.all([
-                    supabase
-                        .from("job_materials")
-                        .select("job_id, item_id, quantity")
-                        .in("job_id", jobIds),
-                    supabase
-                        .from("job_reports")
-                        .select("job_id, report_type")
-                        .in("job_id", jobIds)
+                    fetchInChunks("job_materials", "job_id, item_id, quantity", "job_id", jobIds),
+                    fetchInChunks("job_reports", "job_id, report_type", "job_id", jobIds),
                 ]);
+                if (errMateriales) console.error("Error cargando materiales de trabajos en proceso:", errMateriales);
+                if (errReportes) console.error("Error cargando reportes de trabajos en proceso:", errReportes);
 
                 if (!errMateriales && materiales) {
                     const itemIds = [...new Set(materiales.map(m => m.item_id))];
-                    const { data: itemsData } = await supabase
-                        .from("items")
-                        .select("id, name, category")
-                        .in("id", itemIds.length ? itemIds : ["00000000-0000-0000-0000-000000000000"]);
+                    const { data: itemsData } = await fetchInChunks("items", "id, name, category", "id", itemIds);
 
                     const itemMap = new Map((itemsData || []).map(i => [i.id, { name: i.name, category: i.category }]));
 
@@ -611,24 +604,17 @@ export default function Inventario({
             const jobIdsHistorial = historialConNombres.map(t => t.id);
             if (jobIdsHistorial.length > 0) {
                 const [{ data: materiales, error: errMateriales }, { data: reportesData, error: errReportes }] = await Promise.all([
-                    supabase
-                        .from("job_materials")
-                        .select("job_id, item_id, quantity")
-                        .in("job_id", jobIdsHistorial),
-                    supabase
-                        .from("job_reports")
-                        .select("job_id, report_type")
-                        .in("job_id", jobIdsHistorial)
+                    fetchInChunks("job_materials", "job_id, item_id, quantity", "job_id", jobIdsHistorial),
+                    fetchInChunks("job_reports", "job_id, report_type", "job_id", jobIdsHistorial),
                 ]);
+                if (errMateriales) console.error("Error cargando materiales del historial:", errMateriales);
+                if (errReportes) console.error("Error cargando reportes del historial:", errReportes);
 
                 if (!errMateriales && materiales) {
                     const itemIds = [...new Set(materiales.map(m => m.item_id))];
-                    const { data: itemsData } = await supabase
-                        .from("items")
-                        .select("id, name")
-                        .in("id", itemIds.length ? itemIds : ["00000000-0000-0000-0000-000000000000"]);
+                    const { data: itemsData } = await fetchInChunks("items", "id, name, category", "id", itemIds);
 
-                    const itemMap = new Map((itemsData || []).map(i => [i.id, i.name]));
+                    const itemMap = new Map((itemsData || []).map(i => [i.id, { name: i.name, category: i.category }]));
 
                     // Agrupar materiales por job_id
                     const materialesPorJob = new Map();
@@ -636,10 +622,12 @@ export default function Inventario({
                         if (!materialesPorJob.has(m.job_id)) {
                             materialesPorJob.set(m.job_id, []);
                         }
+                        const itemInfo = itemMap.get(m.item_id) || { name: m.item_id, category: null };
                         materialesPorJob.get(m.job_id).push({
                             item_id: m.item_id,
-                            item_name: itemMap.get(m.item_id) || m.item_id,
-                            quantity: m.quantity
+                            item_name: itemInfo.name,
+                            quantity: m.quantity,
+                            item_category: itemInfo.category
                         });
                     });
 

@@ -205,21 +205,38 @@ export default function CerecTrabajoCard({
                         {notaLaboratorista}
 
                         {trabajo.materiales?.length > 0 && (
-                            <div className="pt-3 border-t border-gray-100">
-                                <div className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
-                                    Materiales
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {trabajo.materiales.map((m, idx) => (
-                                        <span
-                                            key={idx}
-                                            className="text-xs font-medium bg-gray-50 text-gray-700 border border-gray-200 px-2.5 py-1 rounded-lg"
-                                        >
-                                            {m.item_name}
-                                            <span className="text-gray-400 ml-1">×{m.quantity}</span>
-                                        </span>
+                            <div className="pt-3 border-t border-gray-100 space-y-3">
+                                {[
+                                    {
+                                        titulo: "Bloques fresados",
+                                        lista: trabajo.materiales.filter((m) => m.item_category === "bloc"),
+                                        chip: "bg-blue-50 text-blue-800 border-blue-200",
+                                    },
+                                    {
+                                        titulo: "Aditamentos y otros materiales",
+                                        lista: trabajo.materiales.filter((m) => m.item_category !== "bloc"),
+                                        chip: "bg-gray-50 text-gray-700 border-gray-200",
+                                    },
+                                ]
+                                    .filter((grupo) => grupo.lista.length > 0)
+                                    .map((grupo) => (
+                                        <div key={grupo.titulo}>
+                                            <div className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                                                {grupo.titulo}
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {grupo.lista.map((m, idx) => (
+                                                    <span
+                                                        key={idx}
+                                                        className={`text-xs font-medium border px-2.5 py-1 rounded-lg ${grupo.chip}`}
+                                                    >
+                                                        {m.item_name}
+                                                        <span className="opacity-60 ml-1">×{m.quantity}</span>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
                                     ))}
-                                </div>
                             </div>
                         )}
                     </div>
